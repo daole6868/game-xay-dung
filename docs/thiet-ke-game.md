@@ -170,7 +170,7 @@ Hoả hoạn (lan từ giặc phóng hoả hoặc sự kiện; giếng gần đ�
 | Sản xuất | Cối xay gió (2 lúa→1 bột), Lò bánh (1 bột→1 bánh), Lò rèn (vũ khí / công cụ), Xưởng dệt (2 len→1 vải), Nhà bếp (thịt + 2 cà rốt→món hầm), Bến cá, Chợ | Chuỗi giá trị gia tăng |
 | Quân sự | Doanh trại, Trường bắn, Tu viện, Tháp canh, Hàng rào, Cổng gỗ, Tường đá, Tượng đài | Luyện quân, phòng thủ, lòng dân |
 
-Công trình đặt xong là **công trường**: thợ xây hoặc Hiệp sĩ góp công. Hư hại được thợ xây sửa (tốn chút gỗ). Phá bỏ hoàn 40% (công trường chưa xong hoàn 90%).
+Công trình đặt xong là **công trường**: thợ xây hoặc Hiệp sĩ góp công. Hư hại được thợ xây sửa (tốn chút gỗ). Phá bỏ hoàn 40% (công trường chưa xong hoàn 90%). **Dời công trình** miễn phí bất cứ lúc nào (trừ Lâu đài): giữ nguyên tiến độ, độ bền, cây trồng, thợ và cừu bên trong — để quy hoạch lại làng hoặc kéo tường rào ra tuyến phòng thủ mới.
 
 ### Chuỗi sản xuất
 

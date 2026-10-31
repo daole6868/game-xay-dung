@@ -94,7 +94,7 @@
           const p = touches[e.changedTouches[0].identifier];
           this.setMouse(p);
           g = { type: 'one', sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: false, drawing: false };
-          if (G.UI.placing && G.BUILDINGS[G.UI.placing.type].drag) { g.drawing = true; G.UI.touchDragStart(this.mouse.wx, this.mouse.wy); }
+          if (G.UI.placing && G.UI.dragMode()) { g.drawing = true; G.UI.touchDragStart(this.mouse.wx, this.mouse.wy); }
         } else if (n === 2) {
           if (g && g.drawing) G.UI.touchDragCancel();
           const m = mid();

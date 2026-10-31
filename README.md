@@ -56,6 +56,8 @@ Bảng **Bộ ảnh Tiny Swords** trong game cho biết đã khớp bao nhiêu s
 
 Trên điện thoại game luôn hiển thị **màn ngang**: nếu máy đang cầm dọc, màn chơi tự xoay — chỉ cần xoay ngang điện thoại. Cần điều khiển ảo bên trái; Chém, E, kỹ năng, Bản đồ bên phải; chạm để đi/tương tác; một ngón kéo bản đồ, hai ngón phóng to. Khi xây: chạm để chọn chỗ (ruộng, đường, rào: kéo ngón tay chọn cả vùng) rồi bấm **✓ Đặt**, hoặc **✕ Huỷ** để thôi.
 
+**Dời công trình:** chọn công trình → **✥ Di chuyển** → bấm/chạm chỗ mới (điện thoại: bấm **✓ Đặt**). Miễn phí; công trình giữ nguyên tiến độ xây, độ bền, cây trồng, thợ và cừu bên trong. Lâu đài không dời được.
+
 ## Có gì trong game
 
 - **Cốt truyện 5 chương**, 26 nhiệm vụ, lựa chọn liên minh có hậu quả, trùm cuối nhiều giai đoạn, chế độ vô tận sau khi thắng.

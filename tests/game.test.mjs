@@ -173,3 +173,27 @@ test('mọi nhiệm vụ tính tiến độ được; trận cuối: hạ Bạo 
   run(G, 2);
   assert.ok(won, 'phải hiện màn hình chiến thắng');
 });
+
+test('dời công trình: giữ tiến độ, người và cừu đi theo, không dời được lâu đài', () => {
+  const { G } = loadGame();
+  G.Game.newGame({ seed: 8 });
+  const S = G.S, W = G.World;
+  const c = G.byId(S.castleId);
+  S.stock.wood = 500; S.stock.stone = 500;
+  const find = (type) => { for (let dy = 5; dy < 12; dy++) for (let dx = -8; dx < 14; dx++) if (!G.Build.canPlace(type, c.tx + dx, c.ty + dy) && !G.Build.canPlace(type, c.tx + dx + 3, c.ty + dy)) return { x: c.tx + dx, y: c.ty + dy }; };
+  const p = find('pen');
+  const pen = G.Build.place('pen', p.x, p.y, true);
+  pen.progress = 1; G.Build.work(pen, 1);
+  G.Village.addSheepToPens(2);
+  const sheep = S.units.filter((u) => u.sheep && u.pen === pen.id);
+  const sx = sheep[0].x;
+  // chồng lên một phần chỗ cũ của chính nó vẫn được
+  assert.equal(G.Build.canPlace('pen', p.x + 1, p.y, pen.id), '');
+  assert.equal(G.Build.move(pen, p.x + 3, p.y), '');
+  assert.equal(pen.tx, p.x + 3);
+  assert.equal(W.bmap[p.y * W.W + p.x], 0, 'chỗ cũ phải trống');
+  assert.equal(W.bmap[p.y * W.W + p.x + 3], pen.id);
+  assert.equal(Math.round(sheep[0].x - sx), 3 * T, 'cừu đi theo chuồng');
+  assert.ok(G.Build.move(c, c.tx + 1, c.ty), 'lâu đài không dời được');
+  run(G, 20);
+});

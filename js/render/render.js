@@ -243,8 +243,11 @@
       for (const b of S.buildings) {
         const def = G.BUILDINGS[b.type];
         if (!def.ground || def.road || !this.inView(b.x, b.y)) continue;
+        const dim = G.UI.placing && G.UI.placing.move === b.id;
+        if (dim) this.ctx.globalAlpha = 0.35;
         if (b.type === 'plot') this.drawPlot(b);
         else this.drawBuilding(b);
+        if (dim) this.ctx.globalAlpha = 1;
       }
       // bóng đổ dưới đơn vị
       for (const u of S.units) {
@@ -294,9 +297,13 @@
       for (const u of S.units) if (!u.hidden && this.inView(u.x, u.y, 100)) list.push(u);
       for (const d of S.drops) if (this.inView(d.x, d.y)) list.push(d);
       list.sort((a, b) => this.sortY(a) - this.sortY(b));
+      const movingId = G.UI.placing && G.UI.placing.move;
       for (const o of list) {
         if (o.node) this.drawNode(o);
-        else if (o.building) this.drawBuilding(o);
+        else if (o.building) {
+          if (o.id === movingId) { this.ctx.globalAlpha = 0.35; this.drawBuilding(o); this.ctx.globalAlpha = 1; }
+          else this.drawBuilding(o);
+        }
         else if (o.kind) this.drawUnit(o);
         else this.drawDrop(o);
       }
@@ -620,8 +627,9 @@
       const ctx = this.ctx;
       const def = G.BUILDINGS[P.type];
       const tiles = G.UI.placementTiles();
+      const moving = P.move ? G.byId(P.move) : null;
       for (const t of tiles) {
-        const err = G.Build.canPlace(P.type, t.x, t.y);
+        const err = G.Build.canPlace(P.type, t.x, t.y, P.move);
         ctx.fillStyle = err ? 'rgba(255,80,80,0.35)' : 'rgba(120,255,140,0.3)';
         ctx.fillRect(t.x * T, t.y * T, def.w * T, def.h * T);
         ctx.strokeStyle = err ? 'rgba(255,80,80,0.9)' : 'rgba(120,255,140,0.9)';
@@ -630,7 +638,7 @@
       }
       if (tiles.length === 1 && !def.road) {
         const t = tiles[0];
-        const key = def.sprite || (def.variants && def.variants[0]);
+        const key = moving ? this.buildingSprite(moving) : def.sprite || (def.variants && def.variants[0]);
         if (P.type === 'plot') this.sprite('p.plot', 0, (t.x + 0.5) * T, (t.y + 0.5) * T, { alpha: 0.7 });
         else if (key) this.sprite(key, 0, (t.x + def.w / 2) * T, (t.y + def.h) * T, { alpha: 0.65 });
         if (def.radius) { ctx.strokeStyle = 'rgba(160,220,255,0.6)'; ctx.beginPath(); ctx.arc((t.x + 0.5) * T, (t.y + 0.5) * T, def.radius * T, 0, Math.PI * 2); ctx.stroke(); }

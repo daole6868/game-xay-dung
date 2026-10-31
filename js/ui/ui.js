@@ -63,6 +63,7 @@
       panel.addEventListener('pointerdown', () => { this.pointerInPanel = true; });
       window.addEventListener('pointerup', () => { setTimeout(() => { this.pointerInPanel = false; }, 50); });
       G.on('built', (b) => { if (G.BUILDINGS[b.type].road) G.Render.minimapDirty = true; });
+      G.on('moved', (b) => { if (G.BUILDINGS[b.type].road) G.Render.minimapDirty = true; });
       const mm = $('#minimap');
       mm.addEventListener('click', (e) => this.minimapClick(e, mm));
       G.Input.initJoystick($('#joystick'));
@@ -304,7 +305,7 @@
       const def = G.BUILDINGS[P.type];
       const m = G.Input.mouse;
       const cur = P.touch ? (P.dragEnd || P.at) : this.tileAt(m.wx, m.wy);
-      if (P.drag && def.drag) {
+      if (P.drag && this.dragMode()) {
         const a = P.drag, out = [];
         if (P.type === 'plot') {
           const x0 = Math.min(a.x, cur.x), x1 = Math.max(a.x, cur.x), y0 = Math.min(a.y, cur.y), y1 = Math.max(a.y, cur.y);
@@ -334,6 +335,30 @@
       document.body.classList.add('placing');
       this.renderPlaceBar();
     },
+    /** Đang đặt kiểu kéo cả dãy (ruộng, đường, rào, tường) — không áp dụng khi dời công trình. */
+    dragMode() { const P = this.placing; return !!(P && !P.move && G.BUILDINGS[P.type].drag); },
+
+    /** Bắt đầu dời một công trình đã có. */
+    startMoving(b) {
+      if (!G.Build.canMove(b)) { this.toast('Không dời được công trình này', 'bad'); return; }
+      const touch = G.Input.touchMode || document.body.classList.contains('touch');
+      const cx = b.tx + Math.floor((b.w - 1) / 2), cy = b.ty + Math.floor((b.h - 1) / 2);
+      this.placing = { type: b.type, move: b.id, touch, placed: 0, at: { x: cx, y: cy } };
+      this.closePanel();
+      document.body.classList.add('placing');
+      this.renderPlaceBar();
+    },
+    finishMove(t) {
+      const P = this.placing;
+      const b = G.byId(P.move);
+      if (!b) { this.endPlacing(); return; }
+      const err = G.Build.move(b, t.x, t.y);
+      if (err) { this.toast(err, 'bad', 1.8); return; }
+      this.toast(`Đã dời ${G.BUILDINGS[b.type].name}`, 'good', 1.5);
+      this.endPlacing();
+      this.selected = b.id;
+    },
+
     endPlacing() {
       this.placing = null;
       document.body.classList.remove('placing');
@@ -351,7 +376,7 @@
       if (!P) return;
       const t = this.tileAt(wx, wy);
       P.at = t;
-      if (G.BUILDINGS[P.type].drag) { P.drag = t; P.dragEnd = t; }
+      if (this.dragMode()) { P.drag = t; P.dragEnd = t; }
       this.renderPlaceBar();
     },
     touchDragStart(wx, wy) { const P = this.placing; if (!P) return; P.drag = this.tileAt(wx, wy); P.dragEnd = P.drag; P.at = P.drag; },
@@ -364,6 +389,7 @@
       if (!P) return;
       const def = G.BUILDINGS[P.type];
       const tiles = this.placementTiles();
+      if (P.move) { this.finishMove(tiles[0]); return; }
       let n = 0, err = '';
       for (const t of tiles) {
         const e = G.Build.canPlace(P.type, t.x, t.y);
@@ -387,16 +413,27 @@
       const def = G.BUILDINGS[P.type];
       const tiles = this.placementTiles();
       let ok = 0, err = '';
-      for (const t of tiles) { const e = G.Build.canPlace(P.type, t.x, t.y); if (e) err = err || e; else ok++; }
-      const cost = {};
-      for (const k in def.cost || {}) cost[k] = def.cost[k] * Math.max(1, ok);
-      let hint;
-      if (P.touch) hint = def.drag ? (P.drag ? `${ok} ô hợp lệ` : 'Kéo ngón tay để chọn vùng') : ok ? 'Chạm chỗ khác để dời' : err;
-      else hint = def.drag ? 'Kéo chuột để đặt cả dãy · Chuột phải / Esc để thôi' : 'Bấm để đặt · giữ Shift đặt liên tục · Chuột phải / Esc để huỷ';
-      const canOk = P.touch && ok > 0 && (!def.drag || P.drag);
-      const html = `<div class="pb-info"><b>${def.name}</b><span class="costs">${this.costHtml(cost)}</span><small class="${!ok && P.touch ? 'bad' : ''}">${G.esc(hint || '')}</small></div>
-        ${P.touch ? `<button class="btn primary" data-act="placeOk" ${canOk ? '' : 'disabled'}>✓ Đặt</button>` : ''}
-        <button class="btn danger" data-act="placeCancel">${P.placed && def.drag ? '✓ Xong' : '✕ Huỷ'}</button>`;
+      for (const t of tiles) { const e = G.Build.canPlace(P.type, t.x, t.y, P.move); if (e) err = err || e; else ok++; }
+      const drag = this.dragMode();
+      let hint, html;
+      if (P.move) {
+        const b = G.byId(P.move);
+        const same = b && tiles[0] && tiles[0].x === b.tx && tiles[0].y === b.ty;
+        if (P.touch) hint = !ok ? err : same ? 'Chạm vào chỗ mới' : 'Chạm chỗ khác để đổi vị trí';
+        else hint = !ok ? err : 'Bấm vào chỗ mới · Chuột phải / Esc để huỷ';
+        html = `<div class="pb-info"><b>Dời ${def.name}</b><small class="${!ok ? 'bad' : ''}">${G.esc(hint || '')}</small></div>
+          ${P.touch ? `<button class="btn primary" data-act="placeOk" ${ok && !same ? '' : 'disabled'}>✓ Đặt</button>` : ''}
+          <button class="btn danger" data-act="placeCancel">✕ Huỷ</button>`;
+      } else {
+        const cost = {};
+        for (const k in def.cost || {}) cost[k] = def.cost[k] * Math.max(1, ok);
+        if (P.touch) hint = drag ? (P.drag ? `${ok} ô hợp lệ` : 'Kéo ngón tay để chọn vùng') : ok ? 'Chạm chỗ khác để dời' : err;
+        else hint = drag ? 'Kéo chuột để đặt cả dãy · Chuột phải / Esc để thôi' : 'Bấm để đặt · giữ Shift đặt liên tục · Chuột phải / Esc để huỷ';
+        const canOk = P.touch && ok > 0 && (!drag || P.drag);
+        html = `<div class="pb-info"><b>${def.name}</b><span class="costs">${this.costHtml(cost)}</span><small class="${!ok && P.touch ? 'bad' : ''}">${G.esc(hint || '')}</small></div>
+          ${P.touch ? `<button class="btn primary" data-act="placeOk" ${canOk ? '' : 'disabled'}>✓ Đặt</button>` : ''}
+          <button class="btn danger" data-act="placeCancel">${P.placed && drag ? '✓ Xong' : '✕ Huỷ'}</button>`;
+      }
       if (el._h !== html) { el.innerHTML = html; el._h = html; }
       el.classList.remove('hidden');
     },
@@ -405,9 +442,9 @@
       if (this.modal) return;
       const P = this.placing;
       if (P) {
-        const def = G.BUILDINGS[P.type];
-        if (def.drag) { P.drag = this.tileAt(wx, wy); return; }
+        if (this.dragMode()) { P.drag = this.tileAt(wx, wy); return; }
         const t = this.placementTiles()[0];
+        if (P.move) { this.finishMove(t); return; }
         const b = G.Build.place(P.type, t.x, t.y);
         if (b && !G.Input.down('ShiftLeft') && !G.Input.down('ShiftRight')) this.endPlacing();
         return;

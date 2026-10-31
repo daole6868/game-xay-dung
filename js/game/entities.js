@@ -346,14 +346,16 @@
     center(b) { return { x: (b.tx + b.w / 2) * T, y: (b.ty + b.h / 2) * T }; },
 
     /** Kiểm tra có đặt được công trình ở (tx,ty) không. Trả về chuỗi lỗi hoặc ''. */
-    canPlace(type, tx, ty) {
+    /** ignoreId: id công trình đang được dời (được phép chồng lên chỗ cũ của chính nó). */
+    canPlace(type, tx, ty, ignoreId) {
       const def = G.BUILDINGS[type];
       const W = G.World;
       for (let y = ty; y < ty + def.h; y++) for (let x = tx; x < tx + def.w; x++) {
         if (!W.isLand(x, y)) return 'Phải đặt trên đất liền';
         if (W.nmap[y * W.W + x]) return 'Vướng cây/đá';
-        if (W.bmap[y * W.W + x]) return 'Vướng công trình khác';
-        if (def.road && W.road[y * W.W + x]) return 'Đã có đường';
+        const own = ignoreId && W.bmap[y * W.W + x] === ignoreId;
+        if (W.bmap[y * W.W + x] && !own) return 'Vướng công trình khác';
+        if (def.road && W.road[y * W.W + x] && !own) return 'Đã có đường';
       }
       if (!def.ground) {
         for (const u of G.S.units) {
@@ -432,6 +434,46 @@
         return true;
       }
       return false;
+    },
+
+    canMove(b) {
+      const def = G.BUILDINGS[b.type];
+      return b.team === 0 && !def.unique;
+    },
+
+    /** Dời công trình sang ô (tx,ty), giữ nguyên tiến độ, máu, cây trồng, người & cừu bên trong. Trả về lỗi hoặc ''. */
+    move(b, tx, ty) {
+      if (!this.canMove(b)) return 'Không dời được công trình này';
+      if (tx === b.tx && ty === b.ty) return '';
+      const err = this.canPlace(b.type, tx, ty, b.id);
+      if (err) return err;
+      const def = G.BUILDINGS[b.type];
+      const W = G.World;
+      const dx = (tx - b.tx) * T, dy = (ty - b.ty) * T;
+      G.FX.sprite('fx.dust', b.x, b.y - 10, 0.7);
+      for (let y = b.ty; y < b.ty + b.h; y++) for (let x = b.tx; x < b.tx + b.w; x++) {
+        if (W.inside(x, y) && W.bmap[y * W.W + x] === b.id) W.bmap[y * W.W + x] = 0;
+      }
+      if (def.road) W.road[b.ty * W.W + b.tx] = 0;
+      b.tx = tx; b.ty = ty;
+      b.x = (tx + def.w / 2) * T; b.y = (ty + def.h) * T;
+      for (let y = ty; y < ty + def.h; y++) for (let x = tx; x < tx + def.w; x++) {
+        W.bmap[y * W.W + x] = b.id;
+        if (!def.road && !def.ground) W.road[y * W.W + x] = 0;
+      }
+      if (def.road && b.built) W.road[ty * W.W + tx] = 1;
+      // người trong xưởng/nhà và cừu trong chuồng đi theo công trình
+      for (const u of G.S.units) {
+        if ((u.hidden && (u.workplace === b.id || u.shelter === b.id)) || (u.sheep && u.pen === b.id)) { u.x += dx; u.y += dy; u.wx = null; }
+        else if (u.villager && u.task && u.task.id === b.id && !u.hidden) G.Village.dropTask(u);
+      }
+      b.builders = 0;
+      b.claimBy = 0;
+      if (G.S.hero.work && G.S.hero.work.id === b.id) G.S.hero.work = null;
+      G.FX.sprite('fx.dust', b.x, b.y - 10, 0.7);
+      G.Audio.play('place');
+      G.emit('moved', b);
+      return '';
     },
 
     demolish(b) {

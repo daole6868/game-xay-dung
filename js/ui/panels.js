@@ -79,6 +79,7 @@
     if (b.team !== 0) return h;
     if (!b.built) {
       h += `<button class="btn" data-act="heroBuild">Hiệp sĩ góp tay xây</button> `;
+      h += `<button class="btn" data-act="moveB">✥ Di chuyển</button> `;
       h += `<button class="btn danger" data-act="demolish">Huỷ (hoàn 90%)</button>`;
       return h;
     }
@@ -90,10 +91,11 @@
     if (d.trains) h += trainSection(b);
     if (d.market) h += `<button class="btn primary" data-act="openTrade" data-arg="market">${UI.icon('i.trade')} Mở chợ</button>`;
     if (b.type === 'storage') h += '<p>Dân mang hàng tới kho gần nhất.</p>';
-    if (!d.unique) h += `<div class="sep"></div><button class="btn danger small" data-act="demolish">Phá bỏ (hoàn 40%)</button>`;
+    if (!d.unique) h += `<div class="sep"></div><div class="row"><button class="btn small" data-act="moveB">✥ Di chuyển</button><button class="btn danger small" data-act="demolish">Phá bỏ (hoàn 40%)</button></div>`;
     return h;
   };
   PANELS.building.title = () => { const b = G.byId(UI.selected); return b ? (b.type === 'castle' && b.ruined ? 'Tàn tích Lâu đài' : G.BUILDINGS[b.type].name) : ''; };
+  A.moveB = () => { const b = G.byId(UI.selected); if (b) UI.startMoving(b); };
   A.demolish = () => { const b = G.byId(UI.selected); if (b) { G.Build.demolish(b); UI.closePanel(); } };
   A.heroBuild = () => { const b = G.byId(UI.selected); if (b) { G.S.hero.order = { type: 'interact', id: b.id }; UI.closePanel(); } };
   A.openTrade = (p) => UI.openTrade(p);
