@@ -66,13 +66,14 @@
       const mm = $('#minimap');
       mm.addEventListener('click', (e) => this.minimapClick(e, mm));
       G.Input.initJoystick($('#joystick'));
+      for (const b of document.querySelectorAll('#actions [data-ic]')) b.insertAdjacentHTML('afterbegin', this.icon(b.dataset.ic));
     },
 
     // ---------------- Cập nhật mỗi khung ----------------
     update(dt) {
       if (!G.S || !G.Game.running) return;
       this.hudT -= dt;
-      if (this.hudT <= 0) { this.hudT = 0.12; this.renderHud(); }
+      if (this.hudT <= 0) { this.hudT = 0.12; this.renderHud(); if (this.placing) this.renderPlaceBar(); }
       this.panelT -= dt;
       if (this.panel && this.panelT <= 0 && !this.pointerInPanel) {
         this.panelT = 0.6;
@@ -302,7 +303,7 @@
       if (!P) return [];
       const def = G.BUILDINGS[P.type];
       const m = G.Input.mouse;
-      const cur = this.tileAt(m.wx, m.wy);
+      const cur = P.touch ? (P.dragEnd || P.at) : this.tileAt(m.wx, m.wy);
       if (P.drag && def.drag) {
         const a = P.drag, out = [];
         if (P.type === 'plot') {
@@ -322,15 +323,82 @@
       const def = G.BUILDINGS[type];
       if ((def.tier || 1) > G.S.tier) { this.toast(`Cần đạt bậc ${G.TIERS[def.tier].name}`, 'bad'); return; }
       if (!G.Build.canAfford(def.cost)) { this.toast('Không đủ tài nguyên', 'bad'); return; }
-      this.placing = { type };
+      const touch = G.Input.touchMode || document.body.classList.contains('touch');
+      this.placing = { type, touch, placed: 0 };
+      if (touch) {
+        // bắt đầu ở giữa màn hình, hơi lệch xuống dưới Hiệp sĩ
+        const c = G.Render.screenToWorld(G.Render.w / 2, G.Render.h / 2 + 60);
+        this.placing.at = this.tileAt(c.x, c.y);
+      }
       this.closePanel();
-      this.toast(def.drag ? `Kéo chuột để đặt nhiều ${def.name}. Chuột phải / Esc để thôi.` : `Chọn vị trí đặt ${def.name}. Chuột phải / Esc để huỷ.`, 'info', 2.5);
       document.body.classList.add('placing');
+      this.renderPlaceBar();
+    },
+    endPlacing() {
+      this.placing = null;
+      document.body.classList.remove('placing');
+      this.renderPlaceBar();
     },
     cancel() {
-      if (this.placing) { this.placing = null; document.body.classList.remove('placing'); return; }
+      if (this.placing) { this.endPlacing(); return; }
       this.selected = 0;
       if (this.panel === 'building') this.closePanel();
+    },
+
+    // ---- Đặt công trình bằng cảm ứng: chạm chọn chỗ / kéo chọn vùng, rồi bấm "Đặt" ----
+    touchPlaceAt(wx, wy) {
+      const P = this.placing;
+      if (!P) return;
+      const t = this.tileAt(wx, wy);
+      P.at = t;
+      if (G.BUILDINGS[P.type].drag) { P.drag = t; P.dragEnd = t; }
+      this.renderPlaceBar();
+    },
+    touchDragStart(wx, wy) { const P = this.placing; if (!P) return; P.drag = this.tileAt(wx, wy); P.dragEnd = P.drag; P.at = P.drag; },
+    touchDragMove(wx, wy) { const P = this.placing; if (P && P.drag) P.dragEnd = this.tileAt(wx, wy); },
+    touchDragEnd(wx, wy) { const P = this.placing; if (P && P.drag) P.dragEnd = this.tileAt(wx, wy); this.renderPlaceBar(); },
+    touchDragCancel() { const P = this.placing; if (P) { P.drag = null; P.dragEnd = null; } },
+
+    confirmPlace() {
+      const P = this.placing;
+      if (!P) return;
+      const def = G.BUILDINGS[P.type];
+      const tiles = this.placementTiles();
+      let n = 0, err = '';
+      for (const t of tiles) {
+        const e = G.Build.canPlace(P.type, t.x, t.y);
+        if (e) { err = err || e; continue; }
+        if (!G.Build.canAfford(def.cost)) { err = 'Không đủ tài nguyên'; break; }
+        if (G.Build.place(P.type, t.x, t.y, true)) n++;
+      }
+      if (!n) { this.toast(err || 'Không đặt được ở đó', 'bad', 1.8); return; }
+      P.placed += n;
+      if (n > 1) this.toast(`Đã đặt ${n} ${def.name}`, 'good', 1.5);
+      if (!def.drag || !G.Build.canAfford(def.cost)) { this.endPlacing(); return; }
+      P.drag = null; P.dragEnd = null;
+      this.renderPlaceBar();
+    },
+
+    renderPlaceBar() {
+      const el = $('#place-bar');
+      if (!el) return;
+      const P = this.placing;
+      if (!P) { el.classList.add('hidden'); el.innerHTML = ''; el._h = ''; return; }
+      const def = G.BUILDINGS[P.type];
+      const tiles = this.placementTiles();
+      let ok = 0, err = '';
+      for (const t of tiles) { const e = G.Build.canPlace(P.type, t.x, t.y); if (e) err = err || e; else ok++; }
+      const cost = {};
+      for (const k in def.cost || {}) cost[k] = def.cost[k] * Math.max(1, ok);
+      let hint;
+      if (P.touch) hint = def.drag ? (P.drag ? `${ok} ô hợp lệ` : 'Kéo ngón tay để chọn vùng') : ok ? 'Chạm chỗ khác để dời' : err;
+      else hint = def.drag ? 'Kéo chuột để đặt cả dãy · Chuột phải / Esc để thôi' : 'Bấm để đặt · giữ Shift đặt liên tục · Chuột phải / Esc để huỷ';
+      const canOk = P.touch && ok > 0 && (!def.drag || P.drag);
+      const html = `<div class="pb-info"><b>${def.name}</b><span class="costs">${this.costHtml(cost)}</span><small class="${!ok && P.touch ? 'bad' : ''}">${G.esc(hint || '')}</small></div>
+        ${P.touch ? `<button class="btn primary" data-act="placeOk" ${canOk ? '' : 'disabled'}>✓ Đặt</button>` : ''}
+        <button class="btn danger" data-act="placeCancel">${P.placed && def.drag ? '✓ Xong' : '✕ Huỷ'}</button>`;
+      if (el._h !== html) { el.innerHTML = html; el._h = html; }
+      el.classList.remove('hidden');
     },
 
     pointerDown(wx, wy) {
@@ -341,7 +409,7 @@
         if (def.drag) { P.drag = this.tileAt(wx, wy); return; }
         const t = this.placementTiles()[0];
         const b = G.Build.place(P.type, t.x, t.y);
-        if (b && !G.Input.down('ShiftLeft') && !G.Input.down('ShiftRight')) { this.placing = null; document.body.classList.remove('placing'); }
+        if (b && !G.Input.down('ShiftLeft') && !G.Input.down('ShiftRight')) this.endPlacing();
         return;
       }
       this.down = { x: wx, y: wy };
@@ -355,6 +423,7 @@
         let n = 0;
         for (const t of tiles) { if (G.Build.place(P.type, t.x, t.y, true)) n++; else if (!G.Build.canAfford(G.BUILDINGS[P.type].cost)) break; }
         if (!n) this.toast('Không đặt được ở đó', 'bad', 1.5);
+        P.placed += n;
         P.drag = null;
         return;
       }
@@ -406,9 +475,9 @@
 
     // ---------------- Bản đồ ----------------
     minimapClick(e, canvas) {
-      const r = canvas.getBoundingClientRect();
-      const wx = (e.clientX - r.left) / r.width * G.World.W * T;
-      const wy = (e.clientY - r.top) / r.height * G.World.H * T;
+      // offsetX/Y tính theo khung của bản đồ, đúng cả khi màn chơi bị xoay
+      const wx = e.offsetX / canvas.clientWidth * G.World.W * T;
+      const wy = e.offsetY / canvas.clientHeight * G.World.H * T;
       if (this.mapMode === 'attack') {
         this.mapMode = null;
         G.Military.orderAttack(wx, wy);

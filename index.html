@@ -71,12 +71,12 @@
         <button class="skill" id="btn-potion" data-act="potion" title="Thuốc hồi phục (H)">🧪<span class="k">H</span><small></small></button>
       </div>
       <nav id="actions">
-        <button data-act="panel" data-arg="build"><b>Xây dựng</b><span>B</span></button>
-        <button data-act="panel" data-arg="village"><b>Dân làng</b><span>V</span></button>
-        <button data-act="panel" data-arg="army"><b>Quân đội</b><span>R</span></button>
-        <button data-act="panel" data-arg="trade"><b>Giao thương</b><span>T</span></button>
-        <button data-act="panel" data-arg="tech"><b>Kỹ thuật</b><span>K</span></button>
-        <button data-act="panel" data-arg="quests"><b>Nhiệm vụ</b><span>J</span></button>
+        <button data-act="panel" data-arg="build" data-ic="i.hammer"><b>Xây dựng</b><em>Xây</em><span>B</span></button>
+        <button data-act="panel" data-arg="village" data-ic="i.pop"><b>Dân làng</b><em>Dân</em><span>V</span></button>
+        <button data-act="panel" data-arg="army" data-ic="i.sword"><b>Quân đội</b><em>Quân</em><span>R</span></button>
+        <button data-act="panel" data-arg="trade" data-ic="i.trade"><b>Giao thương</b><em>Chợ</em><span>T</span></button>
+        <button data-act="panel" data-arg="tech" data-ic="i.book"><b>Kỹ thuật</b><em>Kỹ thuật</em><span>K</span></button>
+        <button data-act="panel" data-arg="quests" data-ic="i.scroll"><b>Nhiệm vụ</b><em>Nhiệm vụ</em><span>J</span></button>
       </nav>
     </footer>
 
@@ -87,6 +87,7 @@
       <button data-act="map" class="mapbtn">🗺</button>
     </div>
 
+    <div id="place-bar" class="hidden"></div>
     <div id="panel" class="hidden"></div>
     <div id="mapview" class="hidden"><div class="mapbox"><div class="phead"><h3>Bản đồ Đất Bình Minh</h3><button class="x" data-act="map">✕</button></div><canvas id="bigmap" width="768" height="576"></canvas><div id="map-hint" class="small muted"></div></div></div>
     <div id="modal" class="hidden"></div>
@@ -117,6 +118,7 @@
   <script src="js/ui/ui.js"></script>
   <script src="js/ui/panels.js"></script>
   <script src="js/ui/title.js"></script>
+  <script src="js/ui/layout.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

@@ -11,6 +11,7 @@
       if (s.music === false) G.Audio.musicOn = false;
       if (s.labels === false) G.Render.showLabels = false;
     } catch (e) { /* bỏ qua */ }
+    G.Layout.init();
     G.Render.init($('#view'));
     G.Input.init($('#view'));
     G.UI.init();
@@ -18,7 +19,6 @@
     st.textContent = 'Đang tải đồ hoạ...';
     await window.Assets.init((p) => { st.textContent = `Đang tải đồ hoạ Tiny Swords... ${Math.round(p * 100)}%`; });
     G.Title.init();
-    document.body.classList.toggle('touch', 'ontouchstart' in window || navigator.maxTouchPoints > 0);
     let last = performance.now();
     const frame = (now) => {
       const dt = Math.min(0.1, (now - last) / 1000);

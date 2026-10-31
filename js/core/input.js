@@ -7,7 +7,21 @@
     keys: new Set(),
     mouse: { x: 0, y: 0, wx: 0, wy: 0, inside: false, down: false },
     joy: null,
+    touchMode: false,
     down(code) { return this.keys.has(code); },
+
+    /** Toạ độ trong màn chơi (đã tính cả khi màn bị xoay ngang trên điện thoại). */
+    local(cx, cy, canvas) {
+      if (G.Layout && G.Layout.rotated) return G.Layout.toLocal(cx, cy);
+      const r = canvas.getBoundingClientRect();
+      return { x: cx - r.left, y: cy - r.top };
+    },
+
+    setMouse(p) {
+      this.mouse.x = p.x; this.mouse.y = p.y;
+      const w = G.Render.screenToWorld(p.x, p.y);
+      this.mouse.wx = w.x; this.mouse.wy = w.y;
+    },
 
     init(canvas) {
       window.addEventListener('keydown', (e) => {
@@ -19,16 +33,12 @@
       window.addEventListener('keyup', (e) => this.keys.delete(e.code));
       window.addEventListener('blur', () => this.keys.clear());
 
-      const pos = (e) => {
-        const r = canvas.getBoundingClientRect();
-        this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top;
-        const w = G.Render.screenToWorld(this.mouse.x, this.mouse.y);
-        this.mouse.wx = w.x; this.mouse.wy = w.y;
-      };
+      const pos = (e) => this.setMouse(this.local(e.clientX, e.clientY, canvas));
       let pan = null;
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
       canvas.addEventListener('mousedown', (e) => {
         pos(e);
+        this.touchMode = false;
         G.Audio.unlock();
         if (e.button === 2 || e.button === 1) {
           pan = { x: e.clientX, y: e.clientY, cx: G.Render.cam.x, cy: G.Render.cam.y, moved: false };
@@ -65,82 +75,105 @@
       }, { passive: false });
 
       // ---------- Cảm ứng ----------
-      let touches = {}, pinch = null, tap = null;
+      // 1 ngón: chạm = đi/tương tác, kéo = kéo bản đồ (hoặc vẽ vùng khi đặt ruộng/đường/rào)
+      // 2 ngón: phóng to/thu nhỏ và kéo bản đồ
+      const touches = {};
+      let g = null;
+      const cam = G.Render.cam;
+      const mid = () => {
+        const ps = Object.values(touches);
+        return { x: (ps[0].x + ps[1].x) / 2, y: (ps[0].y + ps[1].y) / 2, d: Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) };
+      };
       canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         G.Audio.unlock();
-        for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
-        const ids = Object.keys(touches);
-        if (ids.length === 1) {
-          const t = e.changedTouches[0];
-          tap = { x: t.clientX, y: t.clientY, time: performance.now(), moved: false, cx: G.Render.cam.x, cy: G.Render.cam.y };
-          pos(t);
-          if (G.UI.placing) G.UI.pointerDown(this.mouse.wx, this.mouse.wy);
-        } else if (ids.length === 2) {
-          const [a, b] = ids.map((i) => touches[i]);
-          pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: G.Render.cam.zoom };
-          tap = null;
+        this.touchMode = true;
+        for (const t of e.changedTouches) touches[t.identifier] = this.local(t.clientX, t.clientY, canvas);
+        const n = Object.keys(touches).length;
+        if (n === 1) {
+          const p = touches[e.changedTouches[0].identifier];
+          this.setMouse(p);
+          g = { type: 'one', sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: false, drawing: false };
+          if (G.UI.placing && G.BUILDINGS[G.UI.placing.type].drag) { g.drawing = true; G.UI.touchDragStart(this.mouse.wx, this.mouse.wy); }
+        } else if (n === 2) {
+          if (g && g.drawing) G.UI.touchDragCancel();
+          const m = mid();
+          g = { type: 'pinch', d: Math.max(20, m.d), zoom: cam.zoom, mx: m.x, my: m.y, cx: cam.x, cy: cam.y };
         }
       }, { passive: false });
       canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        for (const t of e.changedTouches) if (touches[t.identifier]) touches[t.identifier] = { x: t.clientX, y: t.clientY };
-        const ids = Object.keys(touches);
-        if (pinch && ids.length >= 2) {
-          const [a, b] = ids.map((i) => touches[i]);
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          G.Render.cam.zoom = G.clamp(pinch.zoom * d / pinch.d, 0.4, 1.6);
-        } else if (tap && ids.length === 1) {
-          const t = e.changedTouches[0];
-          pos(t);
-          const dx = t.clientX - tap.x, dy = t.clientY - tap.y;
-          if (Math.abs(dx) + Math.abs(dy) > 12) tap.moved = true;
-          if (tap.moved && !G.UI.placing) {
-            G.Render.cam.free = true;
-            G.Render.cam.x = tap.cx - dx / G.Render.cam.zoom;
-            G.Render.cam.y = tap.cy - dy / G.Render.cam.zoom;
+        for (const t of e.changedTouches) if (touches[t.identifier]) touches[t.identifier] = this.local(t.clientX, t.clientY, canvas);
+        if (!g) return;
+        if (g.type === 'pinch' && Object.keys(touches).length >= 2) {
+          const m = mid();
+          cam.zoom = G.clamp(g.zoom * m.d / g.d, 0.35, 1.6);
+          cam.free = true;
+          cam.x = g.cx - (m.x - g.mx) / cam.zoom;
+          cam.y = g.cy - (m.y - g.my) / cam.zoom;
+        } else if (g.type === 'one') {
+          const p = touches[e.changedTouches[0].identifier];
+          if (!p) return;
+          this.setMouse(p);
+          const dx = p.x - g.sx, dy = p.y - g.sy;
+          if (Math.abs(dx) + Math.abs(dy) > 12) g.moved = true;
+          if (g.drawing) G.UI.touchDragMove(this.mouse.wx, this.mouse.wy);
+          else if (g.moved) {
+            cam.free = true;
+            cam.x = g.cx - dx / cam.zoom;
+            cam.y = g.cy - dy / cam.zoom;
           }
         }
       }, { passive: false });
       const end = (e) => {
         e.preventDefault();
-        for (const t of e.changedTouches) delete touches[t.identifier];
-        if (Object.keys(touches).length < 2) pinch = null;
-        if (tap && Object.keys(touches).length === 0) {
-          const t = e.changedTouches[0];
-          pos(t);
-          if (G.UI.placing) G.UI.pointerUp(this.mouse.wx, this.mouse.wy);
-          else if (!tap.moved) { G.UI.pointerDown(this.mouse.wx, this.mouse.wy); G.UI.pointerUp(this.mouse.wx, this.mouse.wy); }
-          tap = null;
+        let last = null;
+        for (const t of e.changedTouches) { last = this.local(t.clientX, t.clientY, canvas); delete touches[t.identifier]; }
+        const left = Object.keys(touches).length;
+        if (!g) return;
+        if (g.type === 'pinch') { if (left === 0) g = null; return; }
+        if (left > 0) return;
+        if (last) this.setMouse(last);
+        const wx = this.mouse.wx, wy = this.mouse.wy;
+        if (g.drawing) G.UI.touchDragEnd(wx, wy);
+        else if (!g.moved) {
+          if (G.UI.placing) G.UI.touchPlaceAt(wx, wy);
+          else { G.UI.pointerDown(wx, wy); G.UI.pointerUp(wx, wy); }
         }
+        g = null;
       };
       canvas.addEventListener('touchend', end, { passive: false });
       canvas.addEventListener('touchcancel', end, { passive: false });
     },
 
     zoomAt(f) {
-      G.Render.cam.zoom = G.clamp(G.Render.cam.zoom * f, 0.4, 1.6);
+      G.Render.cam.zoom = G.clamp(G.Render.cam.zoom * f, 0.35, 1.6);
     },
 
     /** Cần điều khiển ảo cho màn hình cảm ứng. */
     initJoystick(el) {
       const knob = el.querySelector('.knob');
       let id = null, cx = 0, cy = 0;
-      const R = 46;
+      const R = 42;
+      const loc = (x, y) => (G.Layout && G.Layout.rotated ? G.Layout.toLocal(x, y) : { x, y });
       el.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        G.Audio.unlock();
         const t = e.changedTouches[0];
         id = t.identifier;
         const r = el.getBoundingClientRect();
-        cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+        const c = loc(r.left + r.width / 2, r.top + r.height / 2);
+        cx = c.x; cy = c.y;
         move(t);
       }, { passive: false });
       const move = (t) => {
-        let dx = t.clientX - cx, dy = t.clientY - cy;
+        const p = loc(t.clientX, t.clientY);
+        let dx = p.x - cx, dy = p.y - cy;
         const d = Math.hypot(dx, dy);
         if (d > R) { dx = dx / d * R; dy = dy / d * R; }
         knob.style.transform = `translate(${dx}px, ${dy}px)`;
         this.joy = { x: dx / R, y: dy / R };
+        G.Render.cam.free = false;
       };
       el.addEventListener('touchmove', (e) => {
         e.preventDefault();

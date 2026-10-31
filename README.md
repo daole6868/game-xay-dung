@@ -54,7 +54,7 @@ Bảng **Bộ ảnh Tiny Swords** trong game cho biết đã khớp bao nhiêu s
 | `B` `V` `R` `T` `K` `J` `M` | Xây dựng · Dân làng · Quân đội · Giao thương · Kỹ thuật · Nhiệm vụ · Bản đồ |
 | `P` · `C` · `L` · `Esc` | Tạm dừng · về Hiệp sĩ · bật/tắt tên công trình · menu |
 
-Trên điện thoại: cần điều khiển ảo bên trái, nút Chém/E/Bản đồ bên phải, chạm để đi/tương tác, hai ngón để phóng to.
+Trên điện thoại game luôn hiển thị **màn ngang**: nếu máy đang cầm dọc, màn chơi tự xoay — chỉ cần xoay ngang điện thoại. Cần điều khiển ảo bên trái; Chém, E, kỹ năng, Bản đồ bên phải; chạm để đi/tương tác; một ngón kéo bản đồ, hai ngón phóng to. Khi xây: chạm để chọn chỗ (ruộng, đường, rào: kéo ngón tay chọn cả vùng) rồi bấm **✓ Đặt**, hoặc **✕ Huỷ** để thôi.
 
 ## Có gì trong game
 

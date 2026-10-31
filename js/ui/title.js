@@ -108,7 +108,7 @@
           <tr><td>B · V · R · T · K · J · M</td><td>Xây dựng · Dân làng · Quân đội · Giao thương · Kỹ thuật · Nhiệm vụ · Bản đồ</td></tr>
           <tr><td>P · C · L · Esc</td><td>Tạm dừng · Về Hiệp sĩ · Bật/tắt tên · Menu</td></tr>
         </table>
-        <p class="small muted">Điện thoại: chạm để đi/tương tác, cần điều khiển ảo bên trái, nút Chém/E bên phải, hai ngón để phóng to.</p>
+        <p class="small muted">Điện thoại (luôn màn ngang): cần điều khiển ảo bên trái; Chém, E, kỹ năng, Bản đồ bên phải; chạm để đi/tương tác; một ngón kéo bản đồ, hai ngón phóng to. Khi xây: chạm chọn chỗ (ruộng/đường/rào: kéo chọn vùng) rồi bấm ✓ Đặt hoặc ✕ Huỷ.</p>
         <h4>Vòng chơi</h4>
         <ul>
           <li><b>Ban ngày</b> dân làm việc theo nghề bạn giao (bảng Dân làng). <b>Ban đêm</b> dân về nhà, giặc có thể kéo tới — thám báo báo trước lúc 18:00.</li>
@@ -157,6 +157,7 @@
 
     start(fn, intro) {
       G.Audio.unlock();
+      G.Layout.tryLandscape();
       $('#title').classList.add('hidden');
       $('#game').classList.remove('hidden');
       G.Render.resize();

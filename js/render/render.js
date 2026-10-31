@@ -26,15 +26,21 @@
     },
 
     resize() {
-      const r = this.canvas.getBoundingClientRect();
+      // kích thước bố cục (không bị ảnh hưởng khi màn chơi được xoay ngang bằng CSS)
       this.dpr = Math.min(2, window.devicePixelRatio || 1);
-      this.w = Math.max(1, Math.round(r.width));
-      this.h = Math.max(1, Math.round(r.height));
+      this.w = Math.max(1, this.canvas.clientWidth);
+      this.h = Math.max(1, this.canvas.clientHeight);
       this.canvas.width = Math.round(this.w * this.dpr);
       this.canvas.height = Math.round(this.h * this.dpr);
       this.lightCanvas.width = Math.ceil(this.w / 2);
       this.lightCanvas.height = Math.ceil(this.h / 2);
-      if (this.w < 700) this.cam.zoom = Math.min(this.cam.zoom, 0.55);
+      // mức phóng mặc định cho màn nhỏ (chỉ đặt một lần, để không ghi đè khi người chơi tự phóng to)
+      const small = Math.min(this.w, this.h);
+      const kind = small < 450 ? 'phone' : this.w < 900 ? 'tablet' : 'desk';
+      if (kind !== this.sizeKind) {
+        this.sizeKind = kind;
+        this.cam.zoom = kind === 'phone' ? 0.6 : kind === 'tablet' ? 0.75 : 0.9;
+      }
     },
 
     shake(n) { this.shakeMag = Math.max(this.shakeMag, n); this.shakeT = 0.4; },

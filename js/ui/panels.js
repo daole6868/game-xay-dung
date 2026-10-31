@@ -490,6 +490,8 @@
   A.eat = () => G.Hero.eat(false);
   A.potion = () => G.Hero.potion();
   A.map = () => UI.toggleMap();
+  A.placeOk = () => UI.confirmPlace();
+  A.placeCancel = () => UI.endPlacing();
   A.center = () => G.Render.snapCamera();
   A.zoom = (f) => G.Input.zoomAt(+f);
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -232,42 +232,148 @@ details summary { cursor: pointer; color: var(--cyan); margin: 6px 0; }
 .intro h2 { font-family: var(--title); font-style: italic; font-weight: 900; font-size: 40px; margin: 6px 0 14px; }
 .intro p { font-size: 16px; line-height: 1.6; color: #cfd6ff; }
 
-/* ---------- Cảm ứng ---------- */
+/* ---------- Cảm ứng (máy tính bảng) ---------- */
 #joystick, #touch-actions { display: none; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 body.touch #joystick { display: block; position: absolute; left: 18px; bottom: 150px; width: 120px; height: 120px; border-radius: 50%; background: rgba(16,23,65,.45); border: 2px solid rgba(90,209,255,.35); touch-action: none; }
-body.touch #joystick .knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(90,209,255,.55); }
+body.touch #joystick .knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(90,209,255,.55); pointer-events: none; }
 body.touch #touch-actions { display: flex; flex-direction: column; gap: 10px; position: absolute; right: 18px; bottom: 150px; }
 body.touch #touch-actions button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--line); background: rgba(16,23,65,.85); font-size: 22px; font-weight: 900; }
+#actions button img.ic { width: 20px; height: 20px; margin: 0 0 2px; }
+#actions button em { display: none; font-style: normal; }
 
+/* ---------- Thanh đặt công trình ---------- */
+#place-bar { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 24; display: flex; align-items: center; gap: 8px; background: rgba(16,23,65,.96); border: 1px solid #3a4796; border-radius: 14px; padding: 6px 8px 6px 14px; box-shadow: 0 6px 24px #000a; max-width: calc(100% - 16px); }
+#place-bar .pb-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#place-bar .pb-info b { font-family: var(--title); font-style: italic; }
+#place-bar .pb-info small { color: var(--muted); }
+#place-bar .pb-info small.bad { color: var(--bad); }
+#place-bar .btn { margin: 0; white-space: nowrap; }
+
+/* ---------- Màn hình hẹp trên máy tính ---------- */
 @media (max-width: 900px) {
-  #quest-tracker { width: 200px; top: 128px; }
-  .qt-desc { display: none; }
-  #res-bar { right: 8px; top: 92px; }
-  #minimap-wrap { top: auto; bottom: 124px; right: 8px; }
-  #minimap { width: 128px; height: 96px; }
-  #actions button { min-width: 0; padding: 6px 8px; }
-  #actions button span { display: none; }
-  #hero-panel { width: 180px; }
-  #log { display: none; }
-  .chip { padding: 4px 7px; font-size: 12px; }
-  .chip.wide span { font-size: 11px; }
-  #panel { top: 8px; bottom: 8px; }
+  body:not(.phone) #quest-tracker { width: 200px; top: 128px; }
+  body:not(.phone) .qt-desc { display: none; }
+  body:not(.phone) #res-bar { right: 8px; top: 92px; }
+  body:not(.phone) #minimap-wrap { top: auto; bottom: 124px; right: 8px; }
+  body:not(.phone) #minimap { width: 128px; height: 96px; }
+  body:not(.phone) #actions button { min-width: 0; padding: 6px 8px; }
+  body:not(.phone) #actions button span { display: none; }
+  body:not(.phone) #hero-panel { width: 180px; }
+  body:not(.phone) #log { display: none; }
+  body:not(.phone) .chip { padding: 4px 7px; font-size: 12px; }
+  body:not(.phone) #panel { top: 8px; bottom: 8px; }
 }
-@media (max-width: 600px) {
-  #bottom { flex-wrap: wrap; }
-  #actions { width: 100%; justify-content: space-between; }
-  #actions button { flex: 1; }
-  #actions button b { font-size: 11px; }
-  #skills .skill { width: 42px; height: 42px; font-size: 18px; }
-  #hero-panel { width: 150px; padding: 6px; }
-  #quest-tracker { display: none; }
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  .dialog { flex-direction: column; align-items: center; }
-  img.portrait { width: 64px; height: 64px; }
-  body.touch #joystick, body.touch #touch-actions { bottom: 190px; }
-  #minimap-wrap { display: none; }
-  #speed button { padding: 3px 5px; }
-  #res-bar { top: auto; bottom: 178px; left: 8px; right: 90px; }
-  .res { font-size: 11px; padding: 2px 6px 2px 2px; }
-  .res img.ic { width: 16px; height: 16px; }
-}
+
+/* ---------- Điện thoại: luôn màn ngang, giao diện gọn ---------- */
+body.phone { font-size: 13px; }
+body.phone #view { touch-action: none; }
+body.phone #hud { top: 4px; left: max(6px, env(safe-area-inset-left, 0px)); right: max(6px, env(safe-area-inset-right, 0px)); gap: 6px; }
+body.phone .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; min-width: 0; }
+body.phone .chips::-webkit-scrollbar { display: none; }
+body.phone .chip { padding: 3px 7px; font-size: 11px; border-radius: 9px; gap: 3px; }
+body.phone .chip img.ic { width: 15px; height: 15px; }
+body.phone .chip small { display: none; }
+body.phone #hud .right { gap: 4px; flex: none; }
+body.phone #speed { padding: 2px; border-radius: 9px; }
+body.phone #speed button { padding: 3px 7px; font-size: 10px; min-width: 0; flex: none; }
+body.phone .btn-menu { padding: 3px 9px; font-size: 14px; }
+body.phone #res-bar { top: 32px; left: max(6px, env(safe-area-inset-left, 0px)); right: 214px; bottom: auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 3px; pointer-events: auto; }
+body.phone #res-bar::-webkit-scrollbar { display: none; }
+body.phone .res { font-size: 11px; padding: 1px 6px 1px 2px; border-radius: 8px; flex: none; }
+body.phone .res img.ic { width: 15px; height: 15px; }
+body.phone #quest-tracker { display: block; top: 32px; left: auto; right: max(6px, env(safe-area-inset-right, 0px)); width: 200px; }
+body.phone .qt-ch { font-size: 10px; margin-bottom: 2px; text-align: right; }
+body.phone .qt { padding: 4px 7px; margin-bottom: 0; border-radius: 8px; }
+body.phone .qt ~ .qt { display: none; }
+body.phone .qt-name { font-size: 12px; }
+body.phone .qt-desc { display: none; }
+body.phone .qt small { font-size: 10px; }
+body.phone .qbar { height: 4px; margin-top: 2px; }
+body.phone #minimap-wrap, body.phone #log { display: none; }
+body.phone #toasts { top: 58px; width: 58%; gap: 4px; }
+body.phone .toast { padding: 5px 10px; font-size: 12px; border-radius: 10px; }
+body.phone #banner { top: 34%; width: 80%; }
+body.phone #banner h2 { font-size: 24px; }
+body.phone #banner p { font-size: 12px; margin: 4px 0 0; }
+
+body.phone #bottom { display: contents; }
+body.phone #hero-panel { position: absolute; top: 58px; left: max(6px, env(safe-area-inset-left, 0px)); width: 150px; padding: 4px 7px 5px; border-radius: 10px; }
+body.phone #hero-name { font-size: 11px; margin-bottom: 1px; }
+body.phone .hbar { height: 11px; margin-top: 3px; }
+body.phone .hbar span { font-size: 9px; line-height: 11px; }
+body.phone .hbar.hunger { height: 8px; }
+body.phone .hbar.hunger span { font-size: 7px; line-height: 8px; }
+body.phone .hbar.xp { height: 3px; }
+body.phone #skills { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 86px; gap: 5px; }
+body.phone .skill { width: 40px; height: 40px; font-size: 17px; border-radius: 10px; }
+body.phone .skill .k { display: none; }
+body.phone #actions { position: absolute; left: calc(132px + env(safe-area-inset-left, 0px)); right: calc(192px + env(safe-area-inset-right, 0px)); bottom: max(6px, env(safe-area-inset-bottom, 0px)); margin: 0; flex-wrap: nowrap; justify-content: center; gap: 4px; }
+body.phone #actions button { flex: 0 1 62px; min-width: 0; padding: 4px 2px 3px; border-radius: 10px; }
+body.phone #actions button b, body.phone #actions button span { display: none; }
+body.phone #actions button em { display: block; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+body.phone #actions button img.ic { width: 18px; height: 18px; margin: 0 0 1px; }
+body.phone #joystick { left: max(14px, env(safe-area-inset-left, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: 108px; height: 108px; }
+body.phone #joystick .knob { left: 31px; top: 31px; width: 46px; height: 46px; }
+body.phone #touch-actions { flex-direction: row-reverse; align-items: flex-end; gap: 8px; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+body.phone #touch-actions button { width: 52px; height: 52px; font-size: 20px; }
+body.phone #touch-actions button[data-act="attack"] { width: 66px; height: 66px; font-size: 26px; border-color: #5c80ff; }
+body.phone #touch-actions .mapbtn { width: 42px; height: 42px; font-size: 17px; }
+body.phone #place-bar { bottom: auto; top: 32px; padding: 4px 6px 4px 10px; gap: 6px; border-radius: 12px; }
+body.phone #place-bar .btn { padding: 8px 12px; font-size: 13px; }
+body.phone #place-bar .pb-info small { font-size: 11px; }
+body.phone.placing #res-bar, body.phone.placing #quest-tracker { visibility: hidden; }
+body.phone.placing #toasts { top: 84px; }
+body.phone #place-bar .pb-info { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: center; }
+body.phone #place-bar .pb-info small { grid-column: 1 / -1; }
+
+body.phone #panel { top: 4px; bottom: 4px; right: max(6px, env(safe-area-inset-right, 0px)); width: min(470px, 66%); border-radius: 12px; }
+body.phone .phead { padding: 5px 10px; }
+body.phone .phead h3 { font-size: 16px; }
+body.phone .phead .x { font-size: 20px; padding: 2px 8px; }
+body.phone .pbody { padding: 8px 10px 14px; }
+body.phone .tabs { gap: 3px; margin-bottom: 6px; }
+body.phone .tab { padding: 5px 8px; font-size: 11px; }
+body.phone .card { padding: 6px; gap: 8px; }
+body.phone img.thumb { width: 44px; height: 44px; }
+body.phone img.thumb.big { width: 64px; height: 64px; }
+body.phone .pbody .seg button, body.phone .form .seg button { min-width: 70px; padding: 5px 6px; }
+body.phone .mini { padding: 4px 8px; min-width: 30px; }
+body.phone td, body.phone th { padding: 4px 3px; }
+
+body.phone #modal { padding: 6px; align-items: center; }
+body.phone .dialog { flex-direction: row; align-items: flex-start; max-height: calc(var(--lh) - 12px); overflow-y: auto; padding: 10px; gap: 10px; border-radius: 14px; }
+body.phone img.portrait { width: 56px; height: 56px; border-radius: 10px; }
+body.phone img.portrait.sm { width: 40px; height: 40px; }
+body.phone .dlg-name { font-size: 15px; }
+body.phone .dlg-text { font-size: 14px; margin: 3px 0 6px; }
+body.phone .event-card { max-height: calc(var(--lh) - 12px); overflow-y: auto; padding: 10px 12px; }
+body.phone .event-card h3 { font-size: 18px; margin: 2px 0 6px; }
+body.phone .ev-row p { font-size: 13px; }
+body.phone .event-card.end h2 { font-size: 22px; }
+body.phone .stats { grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 8px 0; }
+body.phone .stats b { font-size: 15px; }
+body.phone .choices { gap: 4px; }
+body.phone .btn { padding: 7px 12px; }
+body.phone .intro { max-height: calc(var(--lh) - 16px); overflow-y: auto; padding: 14px 18px; }
+body.phone .intro h2 { font-size: 26px; margin: 2px 0 8px; }
+body.phone .intro p { font-size: 13px; line-height: 1.5; margin: 6px 0; }
+body.phone .mapbox { width: auto; max-width: calc(100% - 12px); padding: 0 8px 8px; }
+body.phone #bigmap { width: auto; height: calc(var(--lh) - 80px); max-width: 100%; margin: 0 auto; }
+body.phone #map-hint { font-size: 11px; }
+
+body.phone #title { align-items: flex-start; }
+body.phone .title-wrap { width: 100%; max-width: 760px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+body.phone .kicker { font-size: 9px; letter-spacing: .1em; }
+body.phone h1 { font-size: 40px; }
+body.phone .subtitle { font-size: 13px; margin: 2px 0 10px; }
+body.phone .tmenu { max-width: none; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+body.phone .tmenu .btn:first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+body.phone .btn.big { padding: 9px 10px; font-size: 13px; margin: 0; }
+body.phone .pitch { grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
+body.phone .pitch div { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 8px 4px; gap: 4px; border-radius: 10px; }
+body.phone .pitch img { grid-row: auto; width: 24px; height: 24px; }
+body.phone .pitch b { font-size: 12px; }
+body.phone .pitch span { display: none; }
+body.phone .form { max-width: none; padding: 10px 12px; }
+body.phone .asset-status { margin-top: 10px; }
