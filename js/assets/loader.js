@@ -65,6 +65,7 @@
           if (this.ts.size) { this.source = 'imported'; return; }
         }
       } catch (e) { /* trình duyệt chặn IndexedDB: bỏ qua */ }
+      if (location.protocol === 'file:') return;
       try {
         const res = await fetch('assets/manifest.json', { cache: 'no-cache' });
         if (res.ok) {

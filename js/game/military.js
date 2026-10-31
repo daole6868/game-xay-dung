@@ -512,14 +512,17 @@
       u.slamT = (u.slamT || 7) - dt;
       if (u.slamT <= 0 && G.Units.near(u.x, u.y, 130, (e) => e.team === 0).length) {
         u.slamT = 7;
+        u.slamAt = 0.35;
         G.Units.act(u, 'attack2', 0.6);
-        setTimeout(() => {
-          if (u.dead) return;
+      }
+      if (u.slamAt > 0) {
+        u.slamAt -= dt;
+        if (u.slamAt <= 0) {
           G.FX.sprite('fx.explosion', u.x, u.y, 1.2);
           G.Audio.play('boom');
           G.Render.shake(10);
           for (const e of G.Units.near(u.x, u.y, 140, (x) => x.team === 0 && !x.hidden)) this.damageUnit(e, 38, u);
-        }, 350);
+        }
       }
       const ratio = u.hp / u.maxHp;
       if (ratio < 0.6 && !u.summon1) { u.summon1 = true; this.bossSummon(u); }

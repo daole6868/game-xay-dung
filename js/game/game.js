@@ -46,6 +46,7 @@
       for (let i = 0; i < 3; i++) G.Units.spawnVillager(fx - 80 + i * 60, fy + 60);
       G.Units.spawnNpc('advisor', 'blue', c.tx - 1.2, c.ty + c.h + 0.8);
       G.Village.autoAssign();
+      S.villagers = 3;
       G.Economy.shipArrives();
       S.rare = null;
       this.over = false;

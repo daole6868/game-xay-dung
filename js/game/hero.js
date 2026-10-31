@@ -360,12 +360,21 @@
         return;
       }
       if (role === 'merchant') {
-        if (!S.flags.met_yellow) { S.flags.met_yellow = true; G.Economy.newContracts(); return; }
+        if (!S.flags.met_yellow) {
+          S.flags.met_yellow = true;
+          G.Economy.newContracts();
+          if (!G.Quests.isActive('q_port')) G.UI.dialog([['merchant', 'Khách lạ từ phía bắc à? Thương hội Kim Sa mua bán đủ thứ, cứ tự nhiên xem hàng!']], () => G.UI.openTrade('yellow'));
+          return;
+        }
         G.UI.openTrade('yellow');
         return;
       }
       if (role === 'abbess') {
-        if (!S.flags.met_purple) { S.flags.met_purple = true; return; }
+        if (!S.flags.met_purple) {
+          S.flags.met_purple = true;
+          if (!G.Quests.isActive('q_monastery')) G.UI.dialog([['abbess', 'Tử Nguyệt Tự chào đón người hành hương. Chúng ta đổi thuốc lấy bánh, len và bí ngô.']], () => G.UI.openTrade('purple'));
+          return;
+        }
         if (G.Quests.isActive('q_bread') && !S.flags.breadGiven) {
           if ((S.stock.bread || 0) >= 15) { S.stock.bread -= 15; S.flags.breadGiven = true; return; }
           G.UI.dialog([['abbess', `Tự viện vẫn đang chờ 15 bánh mì của thí chủ (kho đang có ${S.stock.bread || 0}).`]], () => G.UI.openTrade('purple'));

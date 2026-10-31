@@ -132,3 +132,44 @@ test('chơi tự động 8 ngày không lỗi, làng phát triển', () => {
   assert.ok(G.S.flags.castleRepaired, 'lâu đài phải được phục dựng');
   assert.ok(G.S.quests.done.q_fire, 'phải xong nhiệm vụ lửa trại');
 });
+
+test('tuyến buôn: thương lái chở hàng đi bán và mang tiền về', () => {
+  const { G } = loadGame();
+  G.Game.newGame({ seed: 21 });
+  const S = G.S;
+  S.flags.met_purple = true;
+  S.stock.bread = 200;
+  G.Economy.addRoute('purple', 'bread', 10, 'potion', 3);
+  G.Village.setJob('forager', 0);
+  G.Village.setJob('trader', 1);
+  const gold0 = S.gold;
+  run(G, 200);
+  assert.ok(S.stats.trips >= 1, 'phải chạy xong ít nhất một chuyến');
+  assert.ok(S.stock.bread < 200);
+  assert.ok(S.gold > gold0 || S.stock.potion > 0);
+});
+
+test('mọi nhiệm vụ tính tiến độ được; trận cuối: hạ Bạo chúa là thắng', () => {
+  const { G } = loadGame();
+  G.Game.newGame({ seed: 31 });
+  for (const id in G.QUESTS) {
+    const [cur, max] = G.QUESTS[id].progress();
+    assert.ok(Number.isFinite(cur) && max > 0, id);
+  }
+  let won = false;
+  G.UI.endScreen = (w) => { won = w; };
+  const p = G.World.PLACES.F;
+  for (let i = 0; i < 30; i++) G.Units.spawnSoldier(['warrior', 'archer', 'lancer', 'monk', 'warrior'][i % 5], (p.tx - 12) * T, (p.ty - 2 + (i % 6)) * T, { squad: 'B', rank: 3 });
+  G.Military.refreshAllBuffs();
+  for (const u of G.S.units) if (u.soldier) u.hp = u.maxHp;
+  G.S.quests.active = ['q_final'];
+  G.Military.orderAttack((p.tx + 0.5) * T, (p.ty + 0.5) * T);
+  for (let t = 0; t < 900 && !G.S.flags.bossDead; t += 10) {
+    run(G, 10);
+    // tiếp viện cho đủ sức
+    if (G.S.units.filter((u) => u.soldier).length < 12) for (let i = 0; i < 6; i++) G.Units.spawnSoldier('lancer', (p.tx - 8) * T, (p.ty + i - 2) * T, { squad: 'B', rank: 3 });
+  }
+  assert.ok(G.S.flags.bossDead, 'Bạo chúa phải bị hạ');
+  run(G, 2);
+  assert.ok(won, 'phải hiện màn hình chiến thắng');
+});

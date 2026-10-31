@@ -34,7 +34,7 @@
       this.canvas.height = Math.round(this.h * this.dpr);
       this.lightCanvas.width = Math.ceil(this.w / 2);
       this.lightCanvas.height = Math.ceil(this.h / 2);
-      if (this.w < 700) this.cam.zoom = Math.min(this.cam.zoom, 0.7);
+      if (this.w < 700) this.cam.zoom = Math.min(this.cam.zoom, 0.55);
     },
 
     shake(n) { this.shakeMag = Math.max(this.shakeMag, n); this.shakeT = 0.4; },
@@ -159,6 +159,7 @@
 
       this.drawWater(tx0, ty0, tx1, ty1);
       this.drawGround(tx0, ty0, tx1, ty1);
+      if (S.weather === 'snow') { ctx.fillStyle = 'rgba(225,238,255,0.22)'; ctx.fillRect(view.x0, view.y0, view.x1 - view.x0, view.y1 - view.y0); }
       this.drawGroundObjects(view);
       this.drawSorted(view);
       this.drawProjectiles();

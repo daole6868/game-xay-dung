@@ -266,7 +266,7 @@
       if (!G.Game.running) return;
       const k = e.code;
       if (this.modal) {
-        if (k === 'Enter' || k === 'Space' || k === 'KeyE') { const b = $('#modal [data-act="dlgNext"]'); if (b) b.click(); }
+        if (k === 'Enter' || k === 'Space' || k === 'KeyE') { const b = $('#modal [data-act="dlgNext"], #modal [data-act="introGo"], #modal [data-act="endContinue"]'); if (b) b.click(); }
         return;
       }
       switch (k) {

@@ -66,12 +66,13 @@
       let p = it.price;
       const sp = SEASON_PRICE[G.Time.season().id];
       if (sp) p *= sp[item] || (it.food ? sp.food || 1 : 1);
-      const m = S.markets[place] || (S.markets[place] = { supply: {}, hist: {} });
+      const m = this.market(place);
       const s = m.supply[item] || 0;
       p *= G.clamp(Math.exp(-0.022 * s), 0.35, 2.6);
       if (S.demand && S.demand.item === item && (place === 'market' || place === 'yellow')) p *= S.demand.mult;
       return p;
     },
+    market(place) { const M = G.S.markets; return M[place] || (M[place] = { supply: {}, hist: {} }); },
     spread() { return G.S.techs.guild ? 0.07 : 0.15; },
     repMult(place) { const r = G.S.rep[place] || 0; return r / 500; },
 
@@ -103,7 +104,7 @@
       const S = G.S;
       n = Math.min(n, S.stock[item] || 0);
       if (n <= 0) return 0;
-      const m = S.markets[place];
+      const m = this.market(place);
       let total = 0, sold = 0;
       for (let i = 0; i < n; i++) {
         const p = this.sellPrice(item, place);
@@ -122,7 +123,7 @@
     },
     buy(item, n, place) {
       const S = G.S;
-      const m = S.markets[place];
+      const m = this.market(place);
       let total = 0, bought = 0;
       for (let i = 0; i < n; i++) {
         const p = this.buyPrice(item, place);
@@ -159,7 +160,7 @@
       const S = G.S;
       // phục hồi cung cầu, ghi lịch sử giá
       for (const place of ['market', 'yellow', 'purple', 'black']) {
-        const m = S.markets[place] || (S.markets[place] = { supply: {}, hist: {} });
+        const m = this.market(place);
         for (const k in m.supply) { m.supply[k] *= 0.72; if (Math.abs(m.supply[k]) < 0.5) delete m.supply[k]; }
       }
       // nhu cầu nóng
@@ -168,7 +169,7 @@
         S.demand = { item, mult: 1.5 + Math.random() * 0.5, day: S.day };
       } else S.demand = null;
       for (const k of G.ITEM_ORDER) {
-        const h = S.markets.market.hist[k] || (S.markets.market.hist[k] = []);
+        const h = this.market('market').hist[k] || (this.market('market').hist[k] = []);
         h.push(Math.round(this.basePrice(k, 'market') * 10) / 10);
         if (h.length > 10) h.shift();
       }
@@ -377,7 +378,7 @@
     /** Mua hàng nhập khẩu với ngân sách = tiền vừa bán được. */
     buyCargo(item, want, place, budget) {
       const S = G.S;
-      const m = S.markets[place];
+      const m = this.market(place);
       let total = 0, got = 0;
       for (let i = 0; i < want; i++) {
         const p = this.buyPrice(item, place);
