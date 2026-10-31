@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Gươm &amp; Lúa</title>
+  <meta name="description" content="Gươm & Lúa — game nông trại, sinh tồn, xây dựng, quân sự và giao thương chơi trên trình duyệt.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101741'/%3E%3Cpath d='M9 24l13-13M20 9l3 3M8 22l2 2' stroke='%235ad1ff' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M23 26c0-6-3-10-3-14' stroke='%23ffd166' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Exo+2:ital,wght@1,700;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Màn hình chính -->
+  <section id="title">
+    <div class="title-wrap">
+      <div class="kicker">GAME DO CLAUDE LÀM · NÔNG TRẠI · SINH TỒN · XÂY DỰNG · QUÂN SỰ</div>
+      <h1>GƯƠM <span>&amp; LÚA</span></h1>
+      <div class="subtitle">Biên niên sử Lam Quốc</div>
+      <div id="title-body"></div>
+      <div id="asset-status" class="asset-status"></div>
+    </div>
+  </section>
+
+  <!-- Màn chơi -->
+  <section id="game" class="hidden">
+    <canvas id="view"></canvas>
+
+    <header id="hud">
+      <div class="chips">
+        <span class="chip" id="hud-gold" title="Vàng"></span>
+        <span class="chip wide" id="hud-day" title="Ngày · Mùa · Giờ"></span>
+        <span class="chip" id="hud-pop" title="Dân số / chỗ ở"></span>
+        <span class="chip" id="hud-morale" title="Lòng dân"></span>
+        <span class="chip" id="hud-food" title="Lương thực (điểm no) · đủ ăn bao nhiêu ngày"></span>
+        <span class="chip" id="hud-army" title="Binh sĩ"></span>
+        <span id="hud-status"></span>
+      </div>
+      <div class="right">
+        <div id="speed" class="seg small">
+          <button data-act="speed" data-arg="0" title="Tạm dừng (P)">⏸</button>
+          <button data-act="speed" data-arg="1" title="Tốc độ thường">▶</button>
+          <button data-act="speed" data-arg="2" title="Nhanh x2">▶▶</button>
+          <button data-act="speed" data-arg="3" title="Nhanh x3">▶▶▶</button>
+        </div>
+        <button class="chip btn-menu" data-act="panel" data-arg="menu" title="Menu (Esc)">☰</button>
+      </div>
+    </header>
+    <div id="res-bar"></div>
+
+    <aside id="quest-tracker"></aside>
+    <div id="minimap-wrap"><canvas id="minimap" width="192" height="144"></canvas><div class="mm-btns"><button data-act="map" title="Bản đồ lớn (M)">⛶</button><button data-act="center" title="Về Hiệp sĩ (C)">⌖</button><button data-act="zoom" data-arg="1.15">+</button><button data-act="zoom" data-arg="0.87">−</button></div></div>
+
+    <div id="log"></div>
+    <div id="toasts"></div>
+    <div id="banner"></div>
+
+    <footer id="bottom">
+      <div id="hero-panel">
+        <div id="hero-name"></div>
+        <div class="hbar" id="bar-hp"><i></i><span></span></div>
+        <div class="hbar hunger" id="bar-hunger"><i></i><span></span></div>
+        <div class="hbar xp" id="bar-xp"><i></i></div>
+      </div>
+      <div id="skills">
+        <button class="skill" id="skill-0" data-act="skill" data-arg="0" title="Chém xoáy (1) — mở ở cấp 2">⚔<span class="k">1</span><span class="cd"></span></button>
+        <button class="skill" id="skill-1" data-act="skill" data-arg="1" title="Hiệu triệu (2) — mở ở cấp 4">📯<span class="k">2</span><span class="cd"></span></button>
+        <button class="skill" id="skill-2" data-act="skill" data-arg="2" title="Khiên thép (3) — mở ở cấp 6">🛡<span class="k">3</span><span class="cd"></span></button>
+        <button class="skill" data-act="eat" title="Ăn (F)">🍞<span class="k">F</span></button>
+        <button class="skill" id="btn-potion" data-act="potion" title="Thuốc hồi phục (H)">🧪<span class="k">H</span><small></small></button>
+      </div>
+      <nav id="actions">
+        <button data-act="panel" data-arg="build"><b>Xây dựng</b><span>B</span></button>
+        <button data-act="panel" data-arg="village"><b>Dân làng</b><span>V</span></button>
+        <button data-act="panel" data-arg="army"><b>Quân đội</b><span>R</span></button>
+        <button data-act="panel" data-arg="trade"><b>Giao thương</b><span>T</span></button>
+        <button data-act="panel" data-arg="tech"><b>Kỹ thuật</b><span>K</span></button>
+        <button data-act="panel" data-arg="quests"><b>Nhiệm vụ</b><span>J</span></button>
+      </nav>
+    </footer>
+
+    <div id="joystick"><div class="knob"></div></div>
+    <div id="touch-actions">
+      <button data-act="attack">⚔</button>
+      <button data-act="interact">E</button>
+    </div>
+
+    <div id="panel" class="hidden"></div>
+    <div id="mapview" class="hidden"><div class="mapbox"><div class="phead"><h3>Bản đồ Đất Bình Minh</h3><button class="x" data-act="map">✕</button></div><canvas id="bigmap" width="768" height="576"></canvas><div id="map-hint" class="small muted"></div></div></div>
+    <div id="modal" class="hidden"></div>
+  </section>
+
+  <!-- Dữ liệu & mã nguồn (không cần build) -->
+  <script src="js/assets/catalog.js"></script>
+  <script src="js/assets/zip.js"></script>
+  <script src="js/art/fallback.js"></script>
+  <script src="js/assets/loader.js"></script>
+  <script src="js/core/util.js"></script>
+  <script src="js/core/audio.js"></script>
+  <script src="js/core/input.js"></script>
+  <script src="js/data/defs.js"></script>
+  <script src="js/data/story.js"></script>
+  <script src="js/data/events.js"></script>
+  <script src="js/game/path.js"></script>
+  <script src="js/game/world.js"></script>
+  <script src="js/game/entities.js"></script>
+  <script src="js/game/time.js"></script>
+  <script src="js/game/village.js"></script>
+  <script src="js/game/military.js"></script>
+  <script src="js/game/economy.js"></script>
+  <script src="js/game/hero.js"></script>
+  <script src="js/game/quests.js"></script>
+  <script src="js/game/game.js"></script>
+  <script src="js/render/render.js"></script>
+  <script src="js/ui/ui.js"></script>
+  <script src="js/ui/panels.js"></script>
+  <script src="js/ui/title.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
