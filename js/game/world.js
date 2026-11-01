@@ -26,8 +26,8 @@
     r_castle: { name: 'Thành Huyết Nha', w: 5, h: 3, hp: 3600, sprite: 'b.red.castle', enemy: true, shoot: { range: 7.5, dmg: 16, cd: 1.1 } },
   });
 
-  const W = 96, H = 72;
-  const PLACES = {
+  let W = 96, H = 72;
+  const CLASSIC = {
     castle: { tx: 16, ty: 33 },
     yellow: { tx: 42, ty: 58 },
     purple: { tx: 33, ty: 9 },
@@ -37,6 +37,7 @@
     C: { tx: 75, ty: 21 },
     F: { tx: 84, ty: 36 },
   };
+  let PLACES = CLASSIC;
   const CAMPS = {
     A: {
       name: 'Tiền đồn Đông', buildings: [['r_tower', 0, -2], ['r_house', 3, -1], ['r_tent', -3, 1], ['r_tent', 1, 2]],
@@ -57,10 +58,60 @@
   };
   G.CAMPS = CAMPS;
 
+  /** Định nghĩa trại theo chữ cái (trại thêm ở bản đồ lớn dùng lại mẫu A/B/C). */
+  G.campDef = function (c) {
+    if (CAMPS[c] && (c !== 'C' || G.S.mode === 'campaign')) return CAMPS[c];
+    if (c === 'C') return Object.assign({}, CAMPS.C, { hostage: false });
+    const base = CAMPS['ABC'['DEHIJ'.indexOf(c) % 3]];
+    return Object.assign({}, base, { name: G.CAMP_NAMES[c] || 'Trại giặc', hostage: false });
+  };
+
   const World = {
     W, H, PLACES,
+    map: null, biome: null,
     ground: null, road: null, bmap: null, nmap: null, coast: null,
     decor: [],
+
+    /** Chọn bản đồ: đặt kích thước, khí hậu và vị trí các địa danh (tất định theo seed). */
+    setup(mapId, seed) {
+      const m = G.mapById(mapId);
+      this.map = m;
+      this.biome = G.BIOMES[m.biome] || G.BIOMES.grass;
+      W = m.W; H = m.H;
+      this.W = W; this.H = H;
+      PLACES = m.shape === 'classic' ? CLASSIC : this.layout(m, seed);
+      this.PLACES = PLACES;
+    },
+
+    /** Bố trí địa danh cho bản đồ sinh tự động. */
+    layout(m, seed) {
+      const rng = G.makeRng(seed * 7 + 101);
+      const j = (v, r) => v + (rng() - 0.5) * 2 * r;
+      const mx = Math.max(7, Math.round(W * 0.08)), my = Math.max(7, Math.round(H * 0.1));
+      const cl = (p) => ({ tx: Math.round(G.clamp(p.tx, mx, W - mx)), ty: Math.round(G.clamp(p.ty, my, H - my)) });
+      const P = {
+        castle: cl({ tx: j(W * 0.16, 2), ty: j(H * 0.5, H * 0.08) }),
+        purple: cl({ tx: j(W * 0.34, 3), ty: j(H * 0.14, 2) }),
+        black: cl({ tx: j(W * 0.62, 4), ty: j(H * 0.14, 2) }),
+        yellow: cl({ tx: j(W * 0.42, 4), ty: j(H * 0.84, 2) }),
+        F: cl({ tx: j(W * 0.86, 2), ty: j(H * 0.5, H * 0.1) }),
+      };
+      const letters = ['A', 'B', 'C', 'D', 'E', 'H', 'I', 'J'].slice(0, G.campCount(m));
+      const minD = Math.max(9, Math.min(W, H) * 0.16);
+      const far = (p, r) => Object.values(P).every((q) => G.dist(p.tx, p.ty, q.tx, q.ty) >= r);
+      for (let i = 0; i < letters.length; i++) {
+        let best = null;
+        for (let k = 0; k < 400; k++) {
+          // trại đầu tiên ở gần làng nhất, các trại sau lan dần về phía đông
+          const t = letters.length === 1 ? 0.5 : i / (letters.length - 1);
+          const p = cl({ tx: W * (0.42 + 0.36 * t) + (rng() - 0.5) * W * 0.2, ty: my + rng() * (H - 2 * my) });
+          if (G.dist(p.tx, p.ty, P.castle.tx, P.castle.ty) < Math.max(16, W * 0.22)) continue;
+          if (far(p, minD - k * 0.02)) { best = p; break; }
+        }
+        if (best) P[letters[i]] = best;
+      }
+      return P;
+    },
 
     idx: (x, y) => y * W + x,
     inside: (x, y) => x >= 0 && y >= 0 && x < W && y < H,
@@ -95,12 +146,27 @@
       const g = this.ground;
       const forced = new Uint8Array(W * H); // 1: bắt buộc đất, 2: bắt buộc nước
 
+      const shape = this.map ? this.map.shape : 'classic';
+      const fs = 0.05 * Math.sqrt(96 / W); // đặc điểm địa hình to lên theo kích thước bản đồ
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const nx = (x + 0.5) / W * 2 - 1, ny = (y + 0.5) / H * 2 - 1;
           const d = Math.sqrt(nx * nx * 0.92 + ny * ny * 1.05);
-          const v = n1.fbm(x * 0.05, y * 0.05, 4) * 0.75 + (1 - d * d) * 0.95 - 0.5;
+          const n = n1.fbm(x * fs, y * fs, 4);
+          let v;
+          if (shape === 'continent') v = n * 0.6 + (1 - Math.pow(Math.max(Math.abs(nx), Math.abs(ny)), 6)) * 0.9 - 0.42;
+          else if (shape === 'archipelago') v = n * 1.25 + (1 - d * d) * 0.55 - 0.78;
+          else if (shape === 'lakes') v = n * 0.55 + (1 - Math.pow(Math.max(Math.abs(nx), Math.abs(ny)), 5)) * 0.9 - 0.38;
+          else v = n * 0.75 + (1 - d * d) * 0.95 - 0.5;
           g[y * W + x] = v > 0 ? 1 : 0;
+        }
+      }
+      if (shape === 'river') {
+        // dòng sông uốn lượn từ bắc xuống nam ở khoảng giữa bản đồ
+        for (let y = 0; y < H; y++) {
+          const cx = W * 0.5 + Math.sin(y * 0.09) * W * 0.06 + (n2(y * 0.05, 3) - 0.5) * 8;
+          const hw = 1.6 + n3(y * 0.1, 7) * 1.4;
+          for (let x = Math.floor(cx - hw); x <= cx + hw; x++) if (this.inside(x, y)) forced[y * W + x] = 2;
         }
       }
       const disc = (cx, cy, r, val) => {
@@ -115,18 +181,23 @@
         for (let i = 0; i <= steps; i++) {
           const t = i / steps;
           const wob = Math.sin(t * Math.PI) * (n2(i * 0.3, a.tx) - 0.5) * 6;
-          disc(G.lerp(a.tx, b.tx, t) + wob, G.lerp(a.ty, b.ty, t) - wob, r, 1);
+          const cx = G.lerp(a.tx, b.tx, t) + wob, cy = G.lerp(a.ty, b.ty, t) - wob;
+          disc(cx, cy, r, 1);
+          // lối đi luôn trống cây/đá để mọi nơi đều tới được
+          for (let yy = Math.floor(cy - 1); yy <= cy + 1; yy++) for (let xx = Math.floor(cx - 1); xx <= cx + 1; xx++) if (this.inside(xx, yy)) this.corr[yy * W + xx] = 1;
         }
       };
+      if (shape === 'classic') {
+        // Vịnh cảng phía nam
+        for (let y = 63; y < H; y++) for (let x = 35; x <= 50; x++) forced[y * W + x] = 2;
+      }
       for (const k in P) disc(P[k].tx, P[k].ty, k === 'castle' || k === 'F' ? 9 : 7, 1);
-      const links = [['castle', 'A'], ['castle', 'yellow'], ['castle', 'purple'], ['purple', 'black'], ['black', 'C'], ['A', 'B'], ['A', 'F'], ['C', 'F'], ['B', 'F'], ['B', 'yellow'], ['A', 'C']];
-      for (const [a, b] of links) line(P[a], P[b], 2.2);
-      // Vịnh cảng phía nam
-      for (let y = 63; y < H; y++) for (let x = 35; x <= 50; x++) forced[y * W + x] = 2;
+      for (const [a, b] of this.links()) line(P[a], P[b], shape === 'archipelago' ? 1.6 : 2.2);
+      const lake = shape === 'lakes' ? 0.6 : shape === 'archipelago' || shape === 'river' ? 0.78 : 0.7;
       for (let i = 0; i < W * H; i++) {
         if (forced[i] === 1) g[i] = 1;
         else if (forced[i] === 2) g[i] = 0;
-        else if (g[i] === 1 && n3.fbm((i % W) * 0.09, Math.floor(i / W) * 0.09, 3) > 0.7) g[i] = 0; // hồ
+        else if (g[i] === 1 && n3.fbm((i % W) * 0.09, Math.floor(i / W) * 0.09, 3) > lake) g[i] = 0; // hồ
       }
       for (let x = 0; x < W; x++) for (const y of [0, 1, H - 2, H - 1]) g[y * W + x] = 0;
       for (let y = 0; y < H; y++) for (const x of [0, 1, W - 2, W - 1]) g[y * W + x] = 0;
@@ -157,6 +228,17 @@
       this.computeCoast();
     },
 
+    /** Các cặp địa danh được nối bằng dải đất (bảo đảm đi tới được). */
+    links() {
+      const P = PLACES;
+      if (P === CLASSIC) return [['castle', 'A'], ['castle', 'yellow'], ['castle', 'purple'], ['purple', 'black'], ['black', 'C'], ['A', 'B'], ['A', 'F'], ['C', 'F'], ['B', 'F'], ['B', 'yellow'], ['A', 'C']];
+      const out = [['castle', 'yellow'], ['castle', 'purple'], ['purple', 'black'], ['black', 'F'], ['yellow', 'F']];
+      const camps = Object.keys(P).filter((k) => k.length === 1 && k !== 'F');
+      let prev = 'castle';
+      for (const c of camps) { out.push([prev, c]); out.push([c, 'F']); prev = c; }
+      return out;
+    },
+
     /** Tạo bản đồ mới từ seed. Ghi vào G.S (nodes, buildings, units). */
     generate(seed) {
       const S = G.S;
@@ -169,8 +251,9 @@
       // Đường cũ nối lâu đài với các thị trấn
       const front = { tx: P.castle.tx + 2, ty: P.castle.ty + 4 };
       for (const k of ['yellow', 'purple', 'A']) {
+        if (!P[k]) continue;
         const dst = k === 'A' ? { tx: P.A.tx - 6, ty: P.A.ty + 1 } : { tx: P[k].tx, ty: P[k].ty + 3 };
-        const path = G.Path.find(front.tx, front.ty, dst.tx, dst.ty, { team: 0, maxIter: 20000, noRoadBias: true });
+        const path = G.Path.find(front.tx, front.ty, dst.tx, dst.ty, { team: 0, maxIter: 60000, noRoadBias: true });
         if (path) {
           // nối các bước chéo thành đường 4 hướng cho liền mạch
           let px = front.tx, py = front.ty;
@@ -196,11 +279,24 @@
       town('yellow', [['y_stall', -1, -1], ['y_house1', -5, -2], ['y_house2', 3, -3], ['y_house3', -4, 2]]);
       town('purple', [['p_monastery', -1, -2], ['p_house1', -5, -1], ['p_house3', 3, -1]]);
       town('black', [['k_castle', -2, -2], ['k_tower', -6, -1], ['k_barracks', 4, -1]]);
-      const dockX = P.yellow.tx + 4;
-      let dockY = P.yellow.ty + 1;
-      while (dockY < H - 3 && this.isLand(dockX, dockY + 2)) dockY++;
-      G.Build.create('y_dock', dockX, dockY, 2, { built: true, faction: 'yellow' });
-      this.decor.push({ type: 'boat', x: (dockX + 1) * T, y: (dockY + 3.6) * T });
+      let dock = null;
+      if (PLACES === CLASSIC) {
+        const dockX = P.yellow.tx + 4;
+        let dockY = P.yellow.ty + 1;
+        while (dockY < H - 3 && this.isLand(dockX, dockY + 2)) dockY++;
+        dock = { x: dockX, y: dockY };
+      } else {
+        for (let r = 3; r < 14 && !dock; r++) {
+          for (let dy = 0; dy <= r && !dock; dy++) for (const dx of [-r + dy, r - dy]) {
+            const x = P.yellow.tx + dx, y = P.yellow.ty + dy;
+            if (this.isLand(x, y) && this.isLand(x + 1, y) && this.isLand(x, y + 1) && this.isLand(x + 1, y + 1) && !this.isLand(x, y + 2) && !this.bmap[y * W + x] && !this.bmap[y * W + x + 1]) { dock = { x, y }; break; }
+          }
+        }
+      }
+      if (dock) {
+        G.Build.create('y_dock', dock.x, dock.y, 2, { built: true, faction: 'yellow' });
+        this.decor.push({ type: 'boat', x: (dock.x + 1) * T, y: (dock.y + 3.6) * T });
+      }
       G.Units.spawnNpc('merchant', 'yellow', P.yellow.tx + 0.5, P.yellow.ty + 1.6);
       G.Units.spawnNpc('abbess', 'purple', P.purple.tx + 0.5, P.purple.ty + 1.2);
       G.Units.spawnNpc('chief', 'black', P.black.tx + 0.5, P.black.ty + 2.2);
@@ -212,14 +308,16 @@
 
       // ---------- Trại Huyết Nha ----------
       S.camps = {};
-      for (const c in CAMPS) {
-        const def = CAMPS[c], p = P[c];
+      const campList = G.Modes ? G.Modes.campList() : Object.keys(CAMPS);
+      for (const c of campList) {
+        const def = G.campDef(c), p = P[c];
+        if (!p) continue;
         S.camps[c] = { id: c, name: def.name, tx: p.tx, ty: p.ty, dead: false, garrison: [] };
         for (const [type, dx, dy] of def.buildings) G.Build.create(type, p.tx + dx, p.ty + dy, 1, { built: true, camp: c });
         for (const k in def.garrison) {
           for (let i = 0; i < def.garrison[k]; i++) G.Units.spawnGarrison(c, k);
         }
-        if (def.boss) G.Units.spawnGarrison(c, 'boss');
+        if (def.boss && !(G.Modes && G.Modes.noBoss())) G.Units.spawnGarrison(c, 'boss');
         if (def.hostage) S.camps[c].hostage = G.Units.spawnNpc('hostage', 'black', p.tx + 0.5, p.ty + 0.5).id;
       }
 
@@ -234,18 +332,21 @@
       };
       const tryNode = (type, x, y) => {
         if (!this.isLand(x, y) || this.nmap[y * W + x] || this.bmap[y * W + x] || this.road[y * W + x]) return null;
-        if (this.coast[y * W + x]) return null;
+        if (this.coast[y * W + x] || this.corr[y * W + x]) return null;
         return G.Nodes.create(type, x, y);
       };
+      const B = this.biome || G.BIOMES.grass;
+      const tf = 0.56 + (1 - B.tree) * 0.12;
       for (let y = 2; y < H - 2; y++) {
         for (let x = 2; x < W - 2; x++) {
           if (!this.isLand(x, y) || !clearOf(x, y)) continue;
           const f = n2.fbm(x * 0.09, y * 0.09, 3);
           const r = rng();
-          if (f > 0.56 && r < 0.6) tryNode('tree', x, y);
-          else if (n4.fbm(x * 0.12 + 40, y * 0.12, 3) > 0.69 && r < 0.45) tryNode('rock', x, y);
-          else if (r < 0.018) tryNode('bush', x, y);
-          else if (r < 0.022) tryNode('tree', x, y);
+          if (f > tf && r < 0.6 * Math.min(1.3, B.tree)) tryNode('tree', x, y);
+          else if (n4.fbm(x * 0.12 + 40, y * 0.12, 3) > 0.69 - (B.rock - 1) * 0.06 && r < 0.45) tryNode('rock', x, y);
+          else if (r < 0.018 * B.bush) tryNode('bush', x, y);
+          else if (r < 0.018 * B.bush + 0.004 * B.tree) tryNode('tree', x, y);
+          else if (r < 0.018 * B.bush + 0.004 * B.tree + 0.0015 * B.gold) tryNode('gold', x, y);
         }
       }
       // Bảo đảm tài nguyên gần nơi bắt đầu
@@ -264,18 +365,16 @@
       cluster('gold', c0.tx + 9, c0.ty + 9, 4, 1.5);
       cluster('gold', P.black.tx + 8, P.black.ty + 7, 6, 2);
       cluster('gold', P.black.tx - 8, P.black.ty + 8, 5, 2);
-      cluster('gold', P.A.tx + 4, P.A.ty + 10, 5, 2);
-      cluster('gold', P.F.tx - 6, P.F.ty + 12, 6, 2);
-      cluster('gold', P.C.tx - 9, P.C.ty + 6, 5, 2);
+      for (const k of Object.keys(P)) if (k.length === 1) cluster('gold', P[k].tx + G.randInt(-8, 8), P[k].ty + 9, 5, 2);
       cluster('rock', P.black.tx, P.black.ty + 10, 6, 3);
       cluster('rock', P.purple.tx + 9, P.purple.ty + 8, 5, 3);
       // Đá trong nước làm cảnh
-      for (let k = 0; k < 40; k++) {
+      for (let k = 0; k < W * H / 170; k++) {
         const x = 2 + Math.floor(rng() * (W - 4)), y = 2 + Math.floor(rng() * (H - 4));
         if (!this.isLand(x, y) && this.nearLand(x, y, 2) && !this.nearLand(x, y, 0)) this.decor.push({ type: 'waterrock', x: x * T + T / 2, y: y * T + T / 2, v: 1 + Math.floor(rng() * 4) });
       }
       // Cừu hoang
-      for (let k = 0; k < 3; k++) this.spawnWildSheep(3, false, rng);
+      for (let k = 0; k < Math.max(3, Math.round(W * H / 2300)); k++) this.spawnWildSheep(3, false, rng);
     },
 
     alloc() {
@@ -284,6 +383,7 @@
       this.bmap = new Int32Array(W * H);
       this.nmap = new Int32Array(W * H);
       this.coast = new Uint8Array(W * H);
+      this.corr = new Uint8Array(W * H);
       this.decor = [];
     },
 
@@ -355,7 +455,7 @@
   // Tra cứu toạ độ cho nhiệm vụ
   G.castleTile = () => { const c = G.byId(G.S.castleId); return c ? { x: c.tx + 2, y: c.ty + 1 } : null; };
   G.townTile = (f) => ({ x: PLACES[f].tx, y: PLACES[f].ty + 2 });
-  G.campTile = (c) => ({ x: PLACES[c].tx, y: PLACES[c].ty });
+  G.campTile = (c) => (PLACES[c] ? { x: PLACES[c].tx, y: PLACES[c].ty } : null);
   G.campDead = (c) => !!(G.S.camps && G.S.camps[c] && G.S.camps[c].dead);
   G.npcTile = (role) => {
     const u = G.S.units.find((v) => v.role === role);

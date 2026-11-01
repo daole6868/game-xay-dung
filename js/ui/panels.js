@@ -52,12 +52,17 @@
     h += '<div class="cards">';
     for (const type of G.BUILD_MENU[cat].items) {
       const d = G.BUILDINGS[type];
-      const locked = (d.tier || 1) > S.tier;
-      const key = d.sprite || (d.variants && d.variants[0]);
+      const lock = G.Modes.locked(d);
+      if (lock && !G.Modes.eraMode() && (d.era || 0) > 3) continue;
+      if (lock && G.Modes.eraMode() && (d.era || 0) > S.era + 1) continue;
+      const locked = !!lock;
+      const ek = G.Eras.sprite({ type, team: 0 });
+      const wk = d.wall || d.barbed ? `w.${G.Eras.wallStyle({ type })}.10` : d.gate ? `w.gate.${G.Eras.gateStyle()}.h` : null;
+      const key = (wk && window.Assets.get(wk) && wk) || (ek && window.Assets.get(ek) && ek) || d.sprite || (d.variants && d.variants[0]);
       const afford = G.Build.canAfford(d.cost);
       h += `<button class="card ${locked ? 'locked' : ''} ${!afford ? 'poor' : ''}" data-act="place" data-arg="${type}" ${locked ? 'disabled' : ''}>
         <img class="thumb" src="${type === 'road' ? window.Assets.icon('i.map') : UI.thumb(key)}" alt="">
-        <div class="cinfo"><b>${d.name}</b>${locked ? `<small class="lockt">🔒 Bậc ${G.TIERS[d.tier].name}</small>` : ''}
+        <div class="cinfo"><b>${G.Eras.bname(type)}</b>${locked ? `<small class="lockt">🔒 ${lock}</small>` : ''}
         <div class="costs">${UI.costHtml(d.cost)}</div><small>${d.desc}</small></div></button>`;
     }
     h += '</div><p class="muted small">Mẹo: giữ Shift để đặt liên tục. Ruộng, đường, rào, tường: kéo chuột để đặt cả dãy. Thợ xây sẽ tới dựng; Hiệp sĩ cũng có thể góp tay (bấm vào công trình đang xây).</p>';
@@ -94,7 +99,7 @@
     if (!d.unique) h += `<div class="sep"></div><div class="row"><button class="btn small" data-act="moveB">✥ Di chuyển</button><button class="btn danger small" data-act="demolish">Phá bỏ (hoàn 40%)</button></div>`;
     return h;
   };
-  PANELS.building.title = () => { const b = G.byId(UI.selected); return b ? (b.type === 'castle' && b.ruined ? 'Tàn tích Lâu đài' : G.BUILDINGS[b.type].name) : ''; };
+  PANELS.building.title = () => { const b = G.byId(UI.selected); return b ? (b.type === 'castle' && b.ruined ? 'Tàn tích Lâu đài' : b.team === 0 ? G.Eras.bname(b.type) : G.BUILDINGS[b.type].name) : ''; };
   A.moveB = () => { const b = G.byId(UI.selected); if (b) UI.startMoving(b); };
   A.demolish = () => { const b = G.byId(UI.selected); if (b) { G.Build.demolish(b); UI.closePanel(); } };
   A.heroBuild = () => { const b = G.byId(UI.selected); if (b) { G.S.hero.order = { type: 'interact', id: b.id }; UI.closePanel(); } };
@@ -107,13 +112,23 @@
       return h + `<div class="box"><b>Phục dựng Lâu đài</b><p>Lâu đài đổ nát chỉ chứa được 3 người và không thể nâng cấp.</p><div class="costs">${UI.costHtml({ wood: 40, stone: 20 })}</div>
         <button class="btn primary" data-act="repairCastle">Phục dựng</button></div>`;
     }
-    const next = G.TIERS[S.tier + 1];
-    h += `<div class="box"><b>Bậc hiện tại: ${G.TIERS[S.tier].name}</b>`;
-    if (next) {
+    if (G.Modes.eraMode()) {
+      const E = G.ERAS[S.era], N = G.Modes.nextEra();
+      h += `<div class="box era-box" style="--ec:${E.color}"><b>${E.name}</b>`;
+      if (N) {
+        h += `<p>Tiến lên <b>${N.name}</b>: cần ${N.pop} dân (đang có ${S.villagers}).</p><div class="costs">${UI.costHtml(N.cost)}</div>
+          <p class="small muted">Mở khoá: ${Object.keys(G.BUILDINGS).filter((k) => G.BUILDINGS[k].era === S.era + 1).map((k) => G.BUILDINGS[k].name).concat(Object.keys(G.UNITS).filter((k) => G.UNITS[k].era === S.era + 1 && G.UNITS[k].cost).map((k) => G.UNITS[k].name)).join(', ') || 'kiến trúc và quân đội mạnh hơn'}.</p>
+          <button class="btn primary" data-act="upgradeTier" ${S.villagers < N.pop || !G.Economy.has(N.cost) ? 'disabled' : ''}>Tiến lên ${N.short}</button>`;
+      } else h += '<p>Vương quốc đã ở thời đại cao nhất.</p>';
+      h += '</div>';
+    }
+    const next = G.Modes.eraMode() ? null : G.TIERS[S.tier + 1];
+    if (!G.Modes.eraMode()) h += `<div class="box"><b>Bậc hiện tại: ${G.TIERS[S.tier].name}</b>`;
+    if (G.Modes.eraMode()) { /* đã hiện ở trên */ } else if (next) {
       h += `<p>Nâng lên <b>${next.name}</b>: cần ${next.pop} dân (đang có ${S.villagers}).</p><div class="costs">${UI.costHtml(next.cost)}</div>
         <button class="btn primary" data-act="upgradeTier" ${S.villagers < next.pop || !G.Economy.has(next.cost) ? 'disabled' : ''}>Nâng bậc</button>`;
     } else h += '<p>Vương quốc đã đạt bậc cao nhất.</p>';
-    h += '</div>';
+    if (!G.Modes.eraMode()) h += '</div>';
     h += `<div class="box"><b>Thuế</b><div class="seg">${G.TAX.map((t, i) => `<button class="${S.tax === i ? 'on' : ''}" data-act="tax" data-arg="${i}">${t.name}<small>${t.gold}v/người · ${t.morale >= 0 ? '+' : ''}${t.morale} lòng dân</small></button>`).join('')}</div></div>`;
     h += `<button class="btn" data-act="panel" data-arg="tech">${UI.icon('i.book')} Nghiên cứu kỹ thuật</button>`;
     if (S.tier >= 2) h += '<p class="muted small">Từ bậc Làng, lâu đài tự bắn tên vào giặc.</p>';
@@ -191,6 +206,8 @@
     let h = '<div class="box"><b>Huấn luyện</b><div class="cards">';
     for (const type of d.trains) {
       const u = G.UNITS[type];
+      const era = G.Modes.eraMode() ? S.era : 3;
+      if ((u.eraMax != null && era > u.eraMax) || (u.era || 0) > era + 1) continue;
       const err = G.Military.canTrain(b, type);
       h += `<button class="card" data-act="train" data-arg="${type}" ${err && err !== 'Không đủ tài nguyên' && err !== 'Hàng chờ đã đầy' ? 'disabled' : ''}>
         <img class="thumb" src="${UI.thumb(`u.blue.${u.kind}.idle`)}" alt=""><div class="cinfo"><b>${u.name}</b>
@@ -244,15 +261,16 @@
   // ================= QUÂN ĐỘI =================
   PANELS.army = function () {
     const S = G.S;
-    const types = ['warrior', 'archer', 'lancer', 'monk', 'merc', 'blacklancer'];
+    const types = Object.keys(G.UNITS).filter((k) => G.UNITS[k].cost || k === 'merc' || k === 'blacklancer');
     const cnt = (sq, t) => S.units.filter((u) => u.team === 0 && u.soldier && u.squad === sq && u.type === t).length;
     let h = '<table class="army"><tr><th></th><th>Đội cận vệ<br><small>theo Hiệp sĩ</small></th><th></th><th>Đội viễn chinh<br><small>giữ thành / tấn công</small></th></tr>';
     let any = false;
     for (const t of types) {
       const a = cnt('A', t), b = cnt('B', t);
-      if (!a && !b && (t === 'merc' || t === 'blacklancer')) continue;
+      if (!a && !b) continue;
       any = any || a || b;
-      h += `<tr><td>${UI.icon(t === 'archer' ? 'i.bow' : t === 'lancer' || t === 'blacklancer' ? 'i.lance' : t === 'monk' ? 'i.heart' : 'i.sword')} ${G.UNITS[t].name}</td>
+      const ic = { archer: 'i.bow', hunter: 'i.bow', lancer: 'i.lance', blacklancer: 'i.lance', spearman: 'i.lance', monk: 'i.heart', medic: 'i.heart', tank: 'i.tank', cannon: 'i.cannon', artillery_u: 'i.cannon', musketeer: 'i.gun', rifleman: 'i.gun', soldier: 'i.gun' }[t] || 'i.sword';
+      h += `<tr><td>${UI.icon(ic)} ${G.UNITS[t].name}</td>
         <td class="num"><b>${a}</b></td><td class="num"><button class="mini" data-act="squad" data-arg="${t}:B" ${a ? '' : 'disabled'}>→</button><button class="mini" data-act="squad" data-arg="${t}:A" ${b ? '' : 'disabled'}>←</button></td><td class="num"><b>${b}</b></td></tr>`;
     }
     h += '</table>';
@@ -264,7 +282,8 @@
     h += `<div class="box"><b>Lính mới gia nhập</b><div class="seg"><button class="${S.army.defaultSquad === 'A' ? 'on' : ''}" data-act="defSquad" data-arg="A">Đội cận vệ</button><button class="${S.army.defaultSquad === 'B' ? 'on' : ''}" data-act="defSquad" data-arg="B">Đội viễn chinh</button></div></div>`;
     const up = S.units.filter((u) => u.team === 0 && u.soldier).reduce((a, u) => a + (G.UNITS[u.type].upkeep || 0), 0);
     h += `<p class="small">Lương lính mỗi sáng: <b>${Math.round(up * (S.techs.discipline ? 0.7 : 1) * G.DIFFICULTY[S.difficulty].upkeep)}</b> vàng. Khắc chế: Kiếm sĩ › Kỵ thương › Cung thủ › Kiếm sĩ.</p>`;
-    h += '<div class="box"><b>Trại Huyết Nha</b><ul class="small">' + Object.values(S.camps).map((c) => `<li>${c.dead ? '✅' : '⚔'} ${c.name} ${c.dead ? '(đã phá)' : `— ${c.garrison.filter((id) => G.byId(id)).length} quân`}</li>`).join('') + '</ul></div>';
+    if (S.mode === 'pvp' && G.PvP) h += G.PvP.panelHtml();
+    if (Object.keys(S.camps).length) h += '<div class="box"><b>Trại Huyết Nha</b><ul class="small">' + Object.values(S.camps).map((c) => `<li>${c.dead ? '✅' : '⚔'} ${c.name} ${c.dead ? '(đã phá)' : `— ${c.garrison.filter((id) => G.byId(id)).length} quân`}</li>`).join('') + '</ul></div>';
     return h;
   };
   A.squad = (arg) => { const [t, sq] = arg.split(':'); G.Military.setSquad(t, sq, G.Input.down('ShiftLeft') ? 99 : 1); UI.renderPanel(); };
@@ -415,7 +434,8 @@
       for (const id of branches[br]) {
         const t = G.TECHS[id];
         const done = S.techs[id];
-        const lock = S.tier < t.tier ? `🔒 Bậc ${G.TIERS[t.tier].name}` : t.req && !S.techs[t.req] ? `Cần ${G.TECHS[t.req].name}` : '';
+        const tl = G.Modes.techLocked(t);
+        const lock = tl ? `🔒 ${tl}` : t.req && !S.techs[t.req] ? `Cần ${G.TECHS[t.req].name}` : '';
         h += `<button class="card ${done ? 'done' : ''}" data-act="research" data-arg="${id}" ${done || lock || S.research ? 'disabled' : ''}>
           ${UI.icon(done ? 'i.star' : 'i.book', 'thumb')}<div class="cinfo"><b>${t.name}${done ? ' ✓' : ''}</b><small>${t.desc}</small>
           ${done ? '' : `<div class="costs">${UI.costHtml(t.cost)} <span class="cost">${UI.icon('i.clock')}${t.time}s</span></div>`}${lock ? `<small class="lockt">${lock}</small>` : ''}</div></button>`;
@@ -429,7 +449,7 @@
   // ================= NHIỆM VỤ =================
   PANELS.quests = function () {
     const S = G.S;
-    let h = `<h4>${G.CHAPTERS[S.quests.chapter].name}</h4>`;
+    let h = `<h4>${G.Modes.chapterName()}</h4>`;
     for (const q of G.Quests.active()) {
       const [cur, max] = q.progress();
       h += `<div class="box"><b>${q.name}</b><p>${q.desc}</p>${bar(cur / max, '#ffd166')}<small>${Math.min(cur, max)}/${max}</small></div>`;
@@ -492,6 +512,7 @@
   A.eat = () => G.Hero.eat(false);
   A.potion = () => G.Hero.potion();
   A.map = () => UI.toggleMap();
+  A.openCastle = () => { const c = G.byId(G.S.castleId); if (c) UI.selectBuilding(c); };
   A.placeOk = () => UI.confirmPlace();
   A.placeCancel = () => UI.endPlacing();
   A.center = () => G.Render.snapCamera();

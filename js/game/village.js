@@ -203,7 +203,7 @@
       }
       if (u.state === 'walk') {
         if (this.walk(u, dt)) {
-          if (G.dist(u.x, u.y, n.x, n.y) > T * 1.6) { this.releaseNode(u); u.task = null; return; }
+          if (G.dist(u.x, u.y, n.x, n.y) > T * 1.6) { n.unsafeT = G.S.day * 1000 + G.S.time * 1000 + 90; this.releaseNode(u); u.task = null; return; }
           u.state = 'work';
         }
         return;
@@ -247,6 +247,10 @@
       const season = G.Time.season().id;
       for (const b of S.buildings) {
         if (b.type !== 'plot' || !b.built || b.stage < 0 || b.withered) continue;
+        if (b.wellT === undefined || (b.wellT -= dt) <= 0) {
+          b.wellT = 4;
+          b.nearWell = S.buildings.some((w) => w.type === 'well' && w.built && w.team === 0 && G.dist(w.x, w.y - T / 2, b.x, b.y - T / 2) <= G.BUILDINGS.well.radius * T);
+        }
         const crop = G.CROPS[b.crop];
         if (b.stage < 3) {
           let m = G.Time.growMult(b);
@@ -425,7 +429,12 @@
           G.Economy.take(r.in);
           b.running = true; b.prog = 0; b.starved = false;
         }
-        const speed = workers * this.workMult() * (S.flags.artisan ? 1.2 : 1);
+        let speed = workers * this.workMult() * (S.flags.artisan ? 1.2 : 1);
+        if (b.powered === undefined || (b.powerT = (b.powerT || 0) - dt) <= 0) {
+          b.powerT = 3;
+          b.powered = S.buildings.some((p) => p.team === 0 && p.built && G.BUILDINGS[p.type].power && G.dist(p.x, p.y, b.x, b.y) < G.BUILDINGS[p.type].power * T);
+        }
+        if (b.powered) speed *= 1.4;
         b.prog += dt * speed / r.t;
         if (b.prog >= 1) {
           b.running = false;
@@ -642,7 +651,7 @@
       for (const b of S.buildings) if (b.team === 0 && b.built && G.BUILDINGS[b.type].morale) deco += G.BUILDINGS[b.type].morale;
       deco = Math.min(10, deco);
       if (deco) { dm += deco; rep.morale.push(['Công trình', deco]); }
-      if (G.Time.season().id === 'winter') {
+      if (G.Time.season().id === 'winter' || (G.World.biome && G.World.biome.cold)) {
         const fires = S.buildings.filter((b) => b.team === 0 && b.built && b.type === 'campfire').length;
         const woodNeed = Math.ceil(vs.length / 3);
         if (S.stock.wood >= woodNeed) { S.stock.wood -= woodNeed; rep.morale.push([`Sưởi ấm (-${woodNeed} gỗ)`, 0]); }

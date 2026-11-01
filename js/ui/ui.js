@@ -90,6 +90,9 @@
       const night = G.Time.isNight();
       const set = (sel, html) => { const el = $(sel); if (el && el._h !== html) { el.innerHTML = html; el._h = html; } };
       set('#hud-gold', `${this.icon('i.coin')}<b>${G.fmt(S.gold)}</b>`);
+      const eraEl = $('#hud-era');
+      if (G.Modes.eraMode()) { eraEl.classList.remove('hidden'); const E = G.ERAS[S.era]; set('#hud-era', `${this.icon('i.era')}<b style="color:${E.color}">${E.short}</b>`); }
+      else eraEl.classList.add('hidden');
       set('#hud-day', `${this.icon(night ? 'i.moon' : 'i.sun')}<span>Ngày <b>${S.day}</b> · <b style="color:${season.color}">${season.name}</b> · ${G.Time.clock()}${S.weather === 'rain' ? ' · Mưa' : S.weather === 'drought' ? ' · Hạn' : S.weather === 'snow' ? ' · Tuyết' : ''}</span>`);
       set('#hud-pop', `${this.icon('i.pop')}<b>${S.villagers}</b>/${G.Build.houseCap()}`);
       const mc = S.morale >= 65 ? 'good' : S.morale < 35 ? 'bad' : '';
@@ -117,7 +120,7 @@
       set('#res-bar', res);
 
       // nhiệm vụ
-      let q = `<div class="qt-ch">${G.CHAPTERS[S.quests.chapter].name}</div>`;
+      let q = `<div class="qt-ch">${G.Modes.chapterName()}</div>`;
       for (const qq of G.Quests.active().slice(0, 4)) {
         const [cur, max] = qq.progress();
         q += `<div class="qt"><div class="qt-name">${G.esc(qq.name)}</div><div class="qt-desc">${G.esc(qq.desc)}</div><div class="qbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><small>${Math.min(cur, max)}/${max}</small></div>`;

@@ -10,7 +10,9 @@
 
     render() {
       const el = $('#title-body');
-      if (this.view === 'new') el.innerHTML = this.newHtml();
+      if (this.view === 'new') el.innerHTML = this.modesHtml();
+      else if (this.view === 'setup') el.innerHTML = this.newHtml();
+      else if (this.view === 'lobby') el.innerHTML = G.PvP ? G.PvP.lobbyHtml() : '';
       else if (this.view === 'load') el.innerHTML = this.loadHtml();
       else if (this.view === 'assets') el.innerHTML = this.assetsHtml(true);
       else if (this.view === 'help') el.innerHTML = this.helpHtml() + '<button class="btn" data-act="tview" data-arg="main">◂ Quay lại</button>';
@@ -27,7 +29,7 @@
     mainHtml() {
       const auto = G.Game.slotMeta('auto');
       return `<div class="tmenu">
-        ${auto ? `<button class="btn primary big" data-act="continue">▶ Tiếp tục <small>${G.esc(auto.hero)} · ngày ${auto.day} · ${G.TIERS[auto.tier].name}</small></button>` : ''}
+        ${auto ? `<button class="btn primary big" data-act="continue">▶ Tiếp tục <small>${G.esc(auto.hero)} · ${G.MODES[auto.mode || 'campaign'].name} · ngày ${auto.day}</small></button>` : ''}
         <button class="btn ${auto ? '' : 'primary'} big" data-act="tview" data-arg="new">⚔ Chơi mới</button>
         <button class="btn big" data-act="tview" data-arg="load">📜 Tải game</button>
         <button class="btn big" data-act="tview" data-arg="assets">🖼 Bộ ảnh Tiny Swords</button>
@@ -42,14 +44,37 @@
       </div>`;
     },
 
+    ng: { mode: 'campaign', mapId: 'tanthu', era: 0, diff: 'normal', name: 'Lam Phong' },
+
+    modesHtml() {
+      return `<div class="form wide"><h3>Chọn chế độ chơi</h3><div class="mode-grid">${Object.keys(G.MODES).map((k) => {
+        const m = G.MODES[k];
+        return `<button class="mode-card ${this.ng.mode === k ? 'on' : ''}" data-act="ngMode" data-arg="${k}">${G.UI.icon(m.icon, 'mi')}<b>${m.name}</b><span>${m.desc}</span></button>`;
+      }).join('')}</div>
+      <div class="row"><button class="btn" data-act="tview" data-arg="main">◂ Quay lại</button></div></div>`;
+    },
+
+    mapCards(sel) {
+      return `<div class="map-grid">${G.MAPS.map((m) => {
+        const B = G.BIOMES[m.biome];
+        return `<button class="map-card ${sel === m.id ? 'on' : ''}" data-act="ngMap" data-arg="${m.id}" style="--bio:${B.ground};--wat:${B.water}">
+          <i class="lv">Cấp ${m.level}</i><b>${m.name}</b><small>${m.W}×${m.H} ô · ${B.name}</small><small class="md">${m.desc}</small></button>`;
+      }).join('')}</div>`;
+    },
+
     newHtml() {
-      return `<div class="form newgame">
-        <h3>Ván mới</h3>
-        <label>Tên Hiệp sĩ <input id="ng-name" maxlength="18" value="Lam Phong"></label>
+      const md = G.MODES[this.ng.mode];
+      const best = (() => { try { return +localStorage.getItem('guomlua_best_survival') || 0; } catch (e) { return 0; } })();
+      return `<div class="form newgame wide">
+        <h3>${G.UI.icon(md.icon, 'mi')} ${md.name}</h3>
+        <p class="muted small">${md.desc}${this.ng.mode === 'survival' && best ? ` Kỷ lục của bạn: ${best} ngày.` : ''}</p>
+        ${md.fixedMap ? `<p>Bản đồ: <b>${G.mapById(md.fixedMap).name}</b> (${G.mapById(md.fixedMap).W}×${G.mapById(md.fixedMap).H} ô)</p>` : `<label>Bản đồ</label>${this.mapCards(this.ng.mapId)}`}
+        ${md.pickEra ? `<label>Thời đại khởi đầu</label><div class="seg era-seg">${G.ERAS.map((e, i) => `<button class="${this.ng.era === i ? 'on' : ''}" data-act="ngEra" data-arg="${i}" style="--ec:${e.color}">${e.short}</button>`).join('')}</div>` : ''}
+        <label>Tên Hiệp sĩ <input id="ng-name" maxlength="18" value="${G.esc(this.ng.name)}"></label>
         <label>Độ khó</label>
         <div class="seg" id="ng-diff">${Object.keys(G.DIFFICULTY).map((k) => `<button class="${k === 'normal' ? 'on' : ''}" data-act="ngDiff" data-arg="${k}">${G.DIFFICULTY[k].name}<small>${k === 'easy' ? 'Giặc yếu, nhiều tài nguyên' : k === 'hard' ? 'Giặc đông & mạnh' : 'Cân bằng'}</small></button>`).join('')}</div>
         <label>Seed bản đồ (để trống = ngẫu nhiên) <input id="ng-seed" inputmode="numeric" placeholder="ví dụ 2026"></label>
-        <div class="row"><button class="btn" data-act="tview" data-arg="main">◂ Quay lại</button><button class="btn primary" data-act="startGame">Bắt đầu ▸</button></div>
+        <div class="row"><button class="btn" data-act="tview" data-arg="new">◂ Chọn chế độ khác</button><button class="btn primary" data-act="startGame">${this.ng.mode === 'pvp' ? 'Vào phòng chơi ▸' : 'Bắt đầu ▸'}</button></div>
       </div>`;
     },
 
@@ -57,7 +82,7 @@
       let h = '<div class="form"><h3>Tải game</h3>';
       for (const s of ['auto', '1', '2', '3']) {
         const m = G.Game.slotMeta(s);
-        h += `<div class="slot"><span>${s === 'auto' ? 'Tự động' : 'Ô ' + s}: ${m ? `${G.esc(m.hero)} · ngày ${m.day} · ${G.TIERS[m.tier].name} · ${G.CHAPTERS[m.ch || 1].name}` : '<i class="muted">trống</i>'}</span>${m ? `<button class="mini" data-act="tLoad" data-arg="${s}">Tải</button>` : ''}</div>`;
+        h += `<div class="slot"><span>${s === 'auto' ? 'Tự động' : 'Ô ' + s}: ${m ? `${G.esc(m.hero)} · ${G.MODES[m.mode || 'campaign'].name} · ${G.mapById(m.map || 'binhminh').name} · ngày ${m.day} · ${m.mode && m.mode !== 'campaign' ? G.ERAS[m.era || 0].short : G.TIERS[m.tier].name}` : '<i class="muted">trống</i>'}</span>${m ? `<button class="mini" data-act="tLoad" data-arg="${s}">Tải</button>` : ''}</div>`;
       }
       return h + '<button class="btn" data-act="tview" data-arg="main">◂ Quay lại</button></div>';
     },
@@ -139,12 +164,24 @@
     init() {
       const a = A();
       a.tview = (v) => { this.view = v; this.render(); };
-      a.ngDiff = (k, el) => { this.diff = k; for (const b of el.parentNode.children) b.classList.toggle('on', b === el); };
+      a.ngDiff = (k, el) => { this.diff = k; this.ng.diff = k; for (const b of el.parentNode.children) b.classList.toggle('on', b === el); };
+      const keepName = () => { const i = $('#ng-name'); if (i) this.ng.name = i.value; };
+      a.ngMode = (k) => {
+        this.ng.mode = k;
+        const md = G.MODES[k];
+        if (md.startEra != null) this.ng.era = md.startEra; else if (k !== 'campaign' && this.ng.era === 0 && k !== 'ages') this.ng.era = 3;
+        this.view = 'setup'; this.render();
+      };
+      a.ngMap = (id) => { keepName(); this.ng.mapId = id; this.render(); };
+      a.ngEra = (i) => { keepName(); this.ng.era = +i; this.render(); };
       a.startGame = () => {
         const name = ($('#ng-name').value || 'Lam Phong').trim().slice(0, 18);
+        this.ng.name = name;
         const seedRaw = $('#ng-seed').value.trim();
         const seed = seedRaw ? (parseInt(seedRaw, 10) || [...seedRaw].reduce((s, c) => (s * 31 + c.charCodeAt(0)) | 0, 7)) : undefined;
-        this.start(() => G.Game.newGame({ heroName: name, difficulty: this.diff || 'normal', seed }), true);
+        const ng = this.ng;
+        if (ng.mode === 'pvp') { if (G.PvP) G.PvP.openLobby({ name, mapId: ng.mapId, era: ng.era, difficulty: this.diff || 'normal' }); return; }
+        this.start(() => G.Game.newGame({ heroName: name, difficulty: this.diff || 'normal', seed, mode: ng.mode, mapId: ng.mapId, era: ng.era }), ng.mode === 'campaign');
       };
       a.continue = () => this.start(() => G.Game.load('auto'));
       a.tLoad = (s) => this.start(() => G.Game.load(s));

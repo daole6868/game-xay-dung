@@ -175,8 +175,10 @@
       }
       // thuế & lương lính
       const vs = G.Village.villagers().length;
-      let tax = vs * G.TAX[S.tax].gold * (S.techs.treasury ? 1.5 : 1) * (0.6 + S.morale / 250);
+      const banks = S.buildings.filter((b) => b.team === 0 && b.built && G.BUILDINGS[b.type].income);
+      let tax = vs * G.TAX[S.tax].gold * (S.techs.treasury ? 1.5 : 1) * (0.6 + S.morale / 250) * (banks.length ? 1.2 : 1);
       tax = Math.round(tax);
+      for (const b of banks) tax += G.BUILDINGS[b.type].income;
       let upkeep = 0;
       for (const u of S.units) if (u.team === 0 && u.soldier) upkeep += (G.UNITS[u.type].upkeep || 0);
       upkeep = Math.round(upkeep * (S.techs.discipline ? 0.7 : 1) * G.DIFFICULTY[S.difficulty].upkeep);

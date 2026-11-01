@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const SIM_SCRIPTS = [
-  'js/core/util.js', 'js/data/defs.js', 'js/data/story.js', 'js/data/events.js',
+  'js/core/util.js', 'js/data/defs.js', 'js/data/maps.js', 'js/data/eras.js', 'js/data/story.js', 'js/data/events.js',
   'js/game/path.js', 'js/game/world.js', 'js/game/entities.js', 'js/game/time.js',
   'js/game/village.js', 'js/game/military.js', 'js/game/economy.js', 'js/game/hero.js',
-  'js/game/quests.js', 'js/game/game.js',
+  'js/game/quests.js', 'js/game/modes.js', 'js/game/game.js',
 ];
 
 export function loadGame(seed = 12345) {

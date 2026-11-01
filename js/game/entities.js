@@ -60,8 +60,9 @@
     },
 
     spawnGarrison(campId, type) {
-      const c = G.CAMPS[campId], p = G.World.PLACES[campId];
+      const p = G.World.PLACES[campId];
       const spot = G.World.findFreeTile(p.tx, p.ty, 1, campId === 'F' ? 6 : 4) || { x: p.tx, y: p.ty + 3 };
+      if (type !== 'boss') type = G.Eras.enemyType(type);
       const u = this.create(type, (spot.x + 0.5) * T, (spot.y + 0.5) * T, 1, { camp: campId, homeX: (spot.x + 0.5) * T, homeY: (spot.y + 0.5) * T });
       G.Military.applyEnemyScaling(u);
       if (type === 'boss') { u.name = 'Xích Hoả'; u.boss = true; }
@@ -302,6 +303,7 @@
       const def = G.BUILDINGS[type];
       let maxHp = def.hp;
       if (team === 0 && G.S.techs && G.S.techs.masonry) maxHp = Math.round(maxHp * 1.4);
+      if (team === 0 && G.Modes.eraMode()) maxHp = Math.round(maxHp * (1 + G.S.era * (type === 'castle' ? 0.45 : 0.25)));
       const b = Object.assign({
         id: G.newId(), building: true, type, tx, ty, w: def.w, h: def.h, team,
         hp: maxHp, maxHp, built: false, progress: 0, level: 1, workers: [], fire: 0, hitT: 0, atkT: 0,
@@ -401,7 +403,8 @@
     /** Người chơi đặt công trình. */
     place(type, tx, ty, silent) {
       const def = G.BUILDINGS[type];
-      if ((def.tier || 1) > G.S.tier) { if (!silent) G.UI.toast(`Cần đạt bậc ${G.TIERS[def.tier].name}`, 'bad'); return null; }
+      const lock = G.Modes.locked(def);
+      if (lock) { if (!silent) G.UI.toast(lock, 'bad'); return null; }
       const err = this.canPlace(type, tx, ty);
       if (err) { if (!silent) G.UI.toast(err, 'bad'); return null; }
       if (!this.canAfford(def.cost)) { if (!silent) G.UI.toast('Không đủ tài nguyên', 'bad'); return null; }
@@ -434,6 +437,19 @@
         return true;
       }
       return false;
+    },
+
+    /** Kiểu nối của tường/rào/cổng: bit 1=Bắc, 2=Đông, 4=Nam, 8=Tây (ô kề là tường hoặc cổng cùng phe). */
+    wallMask(b) {
+      const W = G.World, self = G.BUILDINGS[b.type];
+      const joins = (x, y) => {
+        const o = W.buildingAt(x, y);
+        if (!o || o.team !== b.team) return false;
+        const d = G.BUILDINGS[o.type];
+        if (self.barbed || d.barbed) return !!(self.barbed && d.barbed);
+        return !!(d.wall || d.gate);
+      };
+      return (joins(b.tx, b.ty - 1) ? 1 : 0) | (joins(b.tx + 1, b.ty) ? 2 : 0) | (joins(b.tx, b.ty + 1) ? 4 : 0) | (joins(b.tx - 1, b.ty) ? 8 : 0);
     },
 
     canMove(b) {
@@ -518,7 +534,7 @@
       for (const b of G.S.buildings) {
         if (b.team !== 0 || !b.built) continue;
         const d = G.BUILDINGS[b.type];
-        if (d.house) cap += b.type === 'castle' ? (b.ruined ? 3 : d.house + (G.S.tier - 1) * 2) : d.house;
+        if (d.house) cap += b.type === 'castle' ? (b.ruined ? 3 : d.house + (G.S.tier - 1) * 2) : G.Modes.houseCap(b);
       }
       return cap;
     },

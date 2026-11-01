@@ -3,6 +3,10 @@
  *   Fallback.get(key)     -> { img, fw, fh, n, ax, ay, scale } | null  (tạo lười, có bộ nhớ đệm)
  *   Fallback.iconURL(key) -> data URL PNG của khung đầu (kích thước hiển thị) | null
  *   Fallback.has(key)     -> boolean
+ *   Fallback.extend({ entry(key), drawer(key), keys() })  -> thêm bộ khoá mở rộng (vd. js/art/eras.js)
+ *   Fallback.lib          -> các hàm vẽ & bảng màu nội bộ cho phần mở rộng dùng lại
+ *   Fallback.extKeys()    -> mọi khoá do phần mở rộng khai báo (cho trang xem trước)
+ *   Fallback.entry(key)   -> thông tin khoá { size, frames, ax, ay, still } | null
  * Mỗi khung được vẽ vào bộ đệm điểm ảnh riêng (không khử răng cưa), từng "mảnh" có viền tối tự động.
  */
 (function (root) {
@@ -1149,8 +1153,17 @@
 
   // ================= Danh mục & tạo tấm =================
   function catalog() { return root.TS_CATALOG && root.TS_CATALOG.entries; }
+  // Phần mở rộng: chỉ hỏi sau khi danh mục không có khoá chính xác (khoá cũ giữ nguyên).
+  const EXT = [];
+  function extFor(key) {
+    const E = catalog(); if (E && E[key]) return null;
+    for (const x of EXT) { const e = x.entry && x.entry(key); if (e) return { x, e }; }
+    return null;
+  }
   function entry(key) {
-    const E = catalog(); if (!E || typeof key !== 'string') return null;
+    if (typeof key !== 'string') return null;
+    const E = catalog(), xe = extFor(key); if (xe) return xe.e;
+    if (!E) return null;
     if (E[key]) return E[key];
     const p = key.split('.');
     if (p[0] === 'u' && p.length === 4 && p[1] && p[2] && p[3]) {
@@ -1162,6 +1175,10 @@
     return null;
   }
   function drawer(key) {
+    const xe = extFor(key), d = xe && xe.x.drawer && xe.x.drawer(key);
+    return d || drawer0(key);
+  }
+  function drawer0(key) {
     const p = key.split('.'), a = p[1];
     switch (p[0]) {
       case 'u': { const P = pal(a); if (p[3] === 'arrow') return () => part(() => arrowShape(-11, -1, 12, P)); if (p[3] === 'heal_fx') return healFx; return (f, n) => unit(p[2], p[3], P, f, n); }
@@ -1224,5 +1241,22 @@
   }
   function has(key) { const e = entry(key); return !!(e && drawer(key)); }
 
-  root.Fallback = { get, has, iconURL };
+  /** Đăng ký phần mở rộng: entry(key) -> {size,frames,ax,ay,still}|null, drawer(key) -> (f,n)=>void|null, keys() -> [khoá]. */
+  function extend(x) {
+    if (!x || EXT.includes(x)) return;
+    EXT.push(x);
+    for (const [k, v] of cache) if (!v) { cache.delete(k); urls.delete(k); } // bỏ kết quả "không có" cũ
+  }
+  function extKeys() { const out = []; for (const x of EXT) if (x.keys) out.push(...x.keys()); return out; }
+  const lib = {
+    OL, TAU, FAC, SKIN, STEEL, WOOD, LEATH, GOLD, TAN, STONE, RUIN, ROCK, LEAF, BUSH, WOOL, RED, MEAT, GREEN, ORANGE, CLOTH, SOIL,
+    BONE, GLASS, GLASS2, STR, PANTS, BOOT, GREAVE,
+    rgb, mix, lt, dk, al, tri, pal, hsl, hashS, RNG, h2,
+    org, getOrg: () => [OX, OY], px, rect, erase, cutE, fillFn, ell, ring, poly, polyFn, line, pline, rp, rpoly, rline,
+    ball, lump, sbox, sparkle, part, shadowE,
+    legs, body, robe, head, arm, shield, sword, arrowShape, tool, bow, log, slash, glow, healFx,
+    bricks, crenel, tiles, roofTri, roofTrap, cone, win, door, pennon, hang, target,
+    rockP, tier, puff, flame, fireAt, crate, barrel, fenceRow, flagPole, coin, heartAt, star,
+  };
+  root.Fallback = { get, has, iconURL, entry, extend, extKeys, lib };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -25,7 +25,9 @@
     year() { return Math.floor((G.S.day - 1) / (G.SEASON_DAYS * 4)) + 1; },
     setWeather(w) { G.S.weather = w; },
     growMult(plot) {
-      let m = this.season().grow;
+      const B = G.World.biome || {};
+      let m = this.season().grow * (B.grow || 1);
+      if (B.desertWell && plot && plot.nearWell) m *= 1.5;
       if (G.S.techs.greenhouse && m === 0) m = 0.35;
       if (G.S.weather === 'rain') m *= 1.5;
       if (G.S.weather === 'drought' && !(plot && plot.nearWell) && !G.S.techs.irrigation) m *= 0.5;

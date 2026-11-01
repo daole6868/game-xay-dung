@@ -197,3 +197,67 @@ test('dời công trình: giữ tiến độ, người và cừu đi theo, khôn
   assert.ok(G.Build.move(c, c.tx + 1, c.ty), 'lâu đài không dời được');
   run(G, 20);
 });
+
+test('10 bản đồ: kích thước đúng, mọi trại và thị trấn đi tới được từ lâu đài', () => {
+  for (const m of loadGame().G.MAPS) {
+    const { G } = loadGame();
+    G.Game.newGame({ seed: 5, mode: m.id === 'binhminh' ? 'campaign' : 'ages', mapId: m.id });
+    assert.equal(G.World.W, m.W);
+    assert.equal(G.World.H, m.H);
+    const P = G.World.PLACES, c = P.castle;
+    for (const k of Object.keys(P)) {
+      if (k === 'castle') continue;
+      const path = G.Path.find(c.tx + 2, c.ty + 3, P[k].tx, P[k].ty + 3, { team: 0, near: true, maxIter: 200000 });
+      assert.ok(path, `${m.id}: không có đường tới ${k}`);
+    }
+    if (m.level >= 9) assert.ok(Object.keys(G.S.camps).length >= 7, `${m.id}: bản đồ lớn phải có nhiều trại`);
+  }
+});
+
+test('chế độ: Phát triển không có giặc; Thời đại bắt đầu ở Đồ đá và tiến lên được tới Hiện đại', () => {
+  let { G } = loadGame();
+  G.Game.newGame({ seed: 3, mode: 'sandbox', mapId: 'tanthu', era: 2 });
+  assert.equal(Object.keys(G.S.camps).length, 0);
+  run(G, G.DAY_LEN * 2);
+  assert.equal(G.S.units.filter((u) => u.team === 1).length, 0);
+  ({ G } = loadGame());
+  G.Game.newGame({ seed: 3, mode: 'ages', mapId: 'tanthu' });
+  assert.equal(G.S.era, 0);
+  assert.ok(G.Modes.locked(G.BUILDINGS.bunker), 'ụ súng máy phải khoá ở Đồ đá');
+  assert.equal(G.Modes.locked(G.BUILDINGS.hunter), '');
+  for (let e = 1; e <= 6; e++) {
+    for (const k in G.S.stock) G.S.stock[k] += 5000;
+    G.S.gold += 10000;
+    G.Village.addVillagers(7);
+    G.Modes.advanceEra();
+    assert.equal(G.S.era, e);
+  }
+  assert.equal(G.Modes.locked(G.BUILDINGS.missile), '');
+  assert.equal(G.Modes.unitLocked(G.UNITS.tank), '');
+  assert.ok(G.Modes.unitLocked(G.UNITS.caveman), 'chuỳ đá phải lỗi thời ở thời hiện đại');
+  assert.equal(G.Eras.enemyType('redlancer'), 'red_tank');
+});
+
+test('tường tự nối: hình chữ nhật có góc, cạnh và cổng nối đúng', () => {
+  const { G } = loadGame();
+  G.Game.newGame({ seed: 4, mode: 'sandbox', mapId: 'tanthu', era: 3 });
+  const c = G.byId(G.S.castleId);
+  G.S.stock.stone = 999; G.S.stock.wood = 999;
+  let x0 = 0, y0 = 0;
+  outer: for (let dy = -12; dy < 12; dy++) for (let dx = 4; dx < 20; dx++) {
+    let ok = true;
+    for (let y = 0; y <= 3 && ok; y++) for (let x = 0; x <= 4 && ok; x++) if (G.Build.canPlace('wall', c.tx + dx + x, c.ty + dy + y)) ok = false;
+    if (ok) { x0 = c.tx + dx; y0 = c.ty + dy; break outer; }
+  }
+  assert.ok(x0, 'cần chỗ trống 5x4');
+  const at = {};
+  for (let x = x0; x <= x0 + 4; x++) for (const y of [y0, y0 + 3]) at[x + ',' + y] = G.Build.place(x === x0 + 2 && y === y0 + 3 ? 'gate' : 'wall', x, y, true);
+  for (let y = y0 + 1; y <= y0 + 2; y++) for (const x of [x0, x0 + 4]) at[x + ',' + y] = G.Build.place('wall', x, y, true);
+  const m = (x, y) => G.Build.wallMask(at[x + ',' + y]);
+  assert.equal(m(x0, y0), 2 | 4, 'góc trên trái: Đông + Nam');
+  assert.equal(m(x0 + 4, y0), 8 | 4, 'góc trên phải: Tây + Nam');
+  assert.equal(m(x0 + 1, y0), 2 | 8, 'cạnh trên: Đông + Tây');
+  assert.equal(m(x0, y0 + 1), 1 | 4, 'cạnh trái: Bắc + Nam');
+  assert.equal(m(x0 + 1, y0 + 3), 2 | 8, 'tường cạnh cổng vẫn nối');
+  assert.equal(m(x0 + 2, y0 + 3), 2 | 8, 'cổng nằm ngang');
+});

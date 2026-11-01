@@ -59,7 +59,11 @@
     },
 
     // ---------------- Ô đất dựng sẵn ----------------
+    biome() { return (G.World && G.World.biome) || G.BIOMES.grass; },
+
     buildTiles() {
+      const BI = this.biome();
+      this.tilesBiome = BI;
       // 16 kiểu viền (bit: 1=Bắc, 2=Đông, 4=Nam, 8=Tây giáp nước) x 4 biến thể cỏ
       for (let v = 0; v < 4; v++) {
         for (let m = 0; m < 16; m++) {
@@ -81,12 +85,12 @@
             x.closePath();
           };
           shape(false);
-          x.fillStyle = COL.grass;
+          x.fillStyle = BI.ground;
           x.fill();
           x.save();
           x.clip();
           for (let i = 0; i < 14; i++) {
-            x.fillStyle = rng() < 0.5 ? 'rgba(255,255,230,0.10)' : 'rgba(40,70,20,0.10)';
+            x.fillStyle = rng() < 0.5 ? BI.speck[0] : BI.speck[1];
             const px = Math.floor(rng() * 30) * 2, py = Math.floor(rng() * 30) * 2;
             x.fillRect(px, py, 2 + Math.floor(rng() * 2) * 2, 2);
           }
@@ -94,7 +98,7 @@
           if (m) {
             shape(true);
             x.lineWidth = 8;
-            x.strokeStyle = COL.lip;
+            x.strokeStyle = BI.lip;
             x.stroke();
           }
           x.restore();
@@ -155,7 +159,8 @@
       const dpr = this.dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = COL.water;
+      if (this.tilesBiome !== this.biome()) this.buildTiles();
+      ctx.fillStyle = this.biome().water;
       ctx.fillRect(0, 0, this.w, this.h);
       ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (this.w / 2 - (this.cam.x + sx) * z), dpr * (this.h / 2 - (this.cam.y + sy) * z));
       const view = { x0: this.cam.x - halfW - T, y0: this.cam.y - halfH - T, x1: this.cam.x + halfW + T, y1: this.cam.y + halfH + 2 * T };
@@ -222,16 +227,35 @@
           ctx.drawImage(this.tiles[v * 16 + m], x * T, y * T, T + 0.5, T + 0.5);
         }
       }
-      // đường đất
-      ctx.fillStyle = COL.road;
+      // đường: đất (cổ/trung đại), đá lát (thuốc súng/công nghiệp), nhựa (hiện đại)
+      const style = G.Modes && G.Modes.eraMode() ? G.Eras.def().road : 'dirt';
+      const RC = { dirt: { desert: '#b48f5f', ash: '#6f685d', snow: '#c9b28a' }[this.biome() === G.BIOMES.desert ? 'desert' : this.biome() === G.BIOMES.ash ? 'ash' : this.biome() === G.BIOMES.snow ? 'snow' : 'x'] || COL.road, cobble: '#a9a497', asphalt: '#4b4f58' };
+      ctx.fillStyle = RC[style];
+      const roads = [];
       for (let y = ty0; y <= ty1; y++) {
         for (let x = tx0; x <= tx1; x++) {
           if (!W.road[y * W.W + x]) continue;
           const px = x * T, py = y * T;
+          roads.push(x, y);
           ctx.fillRect(px + 8, py + 8, 48, 48);
           if (W.isRoad(x + 1, y)) ctx.fillRect(px + 56, py + 8, 16, 48);
           if (W.isRoad(x, y + 1)) ctx.fillRect(px + 8, py + 56, 48, 16);
           if (W.isRoad(x + 1, y + 1) && W.isRoad(x + 1, y) && W.isRoad(x, y + 1)) ctx.fillRect(px + 56, py + 56, 16, 16);
+        }
+      }
+      if (style === 'cobble') {
+        ctx.fillStyle = 'rgba(60,55,50,0.25)';
+        for (let i = 0; i < roads.length; i += 2) {
+          const px = roads[i] * T, py = roads[i + 1] * T;
+          for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) ctx.fillRect(px + 10 + c * 12 + (r % 2) * 6, py + 10 + r * 12, 9, 2);
+        }
+      } else if (style === 'asphalt') {
+        ctx.fillStyle = 'rgba(255,230,140,0.75)';
+        for (let i = 0; i < roads.length; i += 2) {
+          const x = roads[i], y = roads[i + 1], px = x * T, py = y * T;
+          const h = W.isRoad(x - 1, y) || W.isRoad(x + 1, y), v = W.isRoad(x, y - 1) || W.isRoad(x, y + 1);
+          if (h && !v) { ctx.fillRect(px + 8, py + 31, 18, 3); ctx.fillRect(px + 40, py + 31, 18, 3); }
+          else if (v && !h) { ctx.fillRect(px + 31, py + 8, 3, 18); ctx.fillRect(px + 31, py + 40, 3, 18); }
         }
       }
     },
@@ -320,7 +344,8 @@
       const bx = n.x + shake, by = (n.ty + 1) * T - 8;
       if (n.type === 'tree') {
         if (n.amount <= 0) { this.sprite('n.stump' + n.v, 0, bx, by); return; }
-        this.sprite('n.tree' + n.v, Math.floor(t * 6 + n.phase * 3), bx, by);
+        const key = this.biome().trees[(n.v - 1) % 4];
+        this.sprite(window.Assets.get(key) ? key : 'n.tree' + n.v, Math.floor(t * 6 + n.phase * 3), bx, by);
       } else if (n.type === 'rock') this.sprite('n.rock' + n.v, 0, bx, by - 4);
       else if (n.type === 'gold') this.sprite('n.goldstone' + n.v, 0, bx, by - 6, { scale: 0.75 });
       else if (n.type === 'bush') {
@@ -332,12 +357,32 @@
     buildingSprite(b) {
       const d = G.BUILDINGS[b.type];
       if (b.type === 'castle' && b.ruined) return 'p.ruins';
+      const ek = G.Eras.sprite(b);
+      if (ek && window.Assets.get(ek)) return ek;
       return b.sprite || d.sprite;
+    },
+
+    /** Kiểu nối của tường/rào: bit 1=Bắc, 2=Đông, 4=Nam, 8=Tây. */
+    wallMask(b) { return G.Build.wallMask(b); },
+    drawWall(b) {
+      const d = G.BUILDINGS[b.type];
+      const m = this.wallMask(b);
+      let key;
+      if (d.gate) key = `w.gate.${G.Eras.gateStyle()}.${(m & 10) || !(m & 5) ? 'h' : 'v'}`;
+      else key = `w.${G.Eras.wallStyle(b)}.${m}`;
+      if (!window.Assets.get(key)) return false;
+      const x = (b.tx + 0.5) * T, y = (b.ty + 1) * T;
+      this.sprite(key, 0, x, y, { flash: b.hitT > 0, alpha: b.built ? null : 0.45 });
+      if (!b.built) this.bar(x, y - 80, 40, b.progress, '#ffd166');
+      else if (b.hp < b.maxHp) this.bar(x, y - 84, 40, b.hp / b.maxHp, b.team === 1 ? '#ff6b6b' : '#5be37d');
+      if (b.fire > 0) this.sprite('fx.fire', Math.floor(this.time * 12), x, y - 30);
+      return true;
     },
 
     drawBuilding(b) {
       const ctx = this.ctx;
       const d = G.BUILDINGS[b.type];
+      if ((d.wall || d.gate || d.barbed) && this.drawWall(b)) return;
       const key = this.buildingSprite(b);
       const x = b.x, y = (b.ty + b.h) * T;
       const flash = b.hitT > 0;
@@ -371,8 +416,9 @@
         this.sprite('p.campfire.anim', Math.floor(this.time * 10), x, y - 14);
       } else if (b.type === 'tower' || b.type === 'r_tower' || b.type === 'k_tower') {
         this.sprite(key, 0, x, y, { flash });
-      } else this.sprite(key, 0, x, y, { flash });
+      } else this.sprite(key, d.anim ? Math.floor(this.time * 8) : 0, x, y, { flash });
 
+      if (d.smoke && (b.running || !d.recipes) && Math.random() < 0.03) G.FX.particle(x + b.w * 10, y - b.h * T * 1.9, { key: 'p.smoke', dur: 2.4, vy: -26, vx: 8, scale: 1.3 });
       if (d.smoke && b.running && Math.random() < 0.05) G.FX.particle(x + b.w * 14, y - b.h * T * 1.6, { key: 'p.smoke', dur: 2, vy: -22, vx: 6, scale: 1 });
       if (b.fire > 0) {
         for (let i = 0; i < b.w; i++) this.sprite('fx.fire', Math.floor(this.time * 12) + i * 3, b.tx * T + (i + 0.5) * T, y - b.h * T * 0.55 + (i % 2) * 14);
@@ -407,8 +453,16 @@
         const it = (u.carry || u.cart).item;
         const v = it === 'wood' ? 'wood' : it === 'stone' || it === 'ore' || it === 'tools' || it === 'weapons' ? 'gold' : 'meat';
         anim = (u.moving ? 'run_' : 'idle_') + v;
-      } else anim = u.moving ? 'run' : u.guardT > 0 && u.kind === 'warrior' ? 'guard' : 'idle';
-      return { key: `u.${color}.${u.kind}.${anim}`, anim };
+      } else anim = u.moving ? (G.UNITS[u.type] && G.UNITS[u.type].vehicle ? 'move' : 'run') : u.guardT > 0 && u.kind === 'warrior' ? 'guard' : 'idle';
+      let key = `u.${color}.${u.kind}.${anim}`;
+      if (!window.Assets.get(key)) {
+        // chưa có hình cho loại quân này: tạm dùng hình kiếm sĩ / cung thủ
+        const ranged = G.UNITS[u.type] && G.UNITS[u.type].ranged;
+        const fk = ranged ? 'archer' : 'warrior';
+        const fa = anim === 'move' ? 'run' : u.act ? (ranged ? 'shoot' : 'attack1') : anim;
+        key = `u.${color}.${fk}.${fa}`;
+      }
+      return { key, anim };
     },
 
     drawUnit(u) {
@@ -463,7 +517,13 @@
     },
 
     drawProjectiles() {
-      for (const p of G.Military.projectiles) this.sprite(`u.${p.color}.archer.arrow`, 0, p.x, p.y, { rot: p.ang, scale: 0.7 });
+      for (const p of G.Military.projectiles) {
+        const k = p.proj && p.proj !== 'arrow' ? 'x.' + p.proj : null;
+        if (k && window.Assets.get(k)) this.sprite(k, 0, p.x, p.y, { rot: p.ang });
+        else if (p.proj === 'bullet') { this.ctx.fillStyle = '#ffe28a'; this.ctx.fillRect(p.x - 3, p.y - 2, 6, 4); }
+        else if (p.proj === 'shell' || p.proj === 'missile') { this.ctx.fillStyle = '#2b2b33'; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); this.ctx.fill(); }
+        else this.sprite(`u.${p.color}.archer.arrow`, 0, p.x, p.y, { rot: p.ang, scale: 0.7 });
+      }
     },
 
     drawFx() {
@@ -559,8 +619,8 @@
           const d = G.BUILDINGS[b.type];
           if (d.noLabel || d.road || !this.inView(b.x, b.y)) continue;
           if (b.team === 0 && !b.built) continue;
-          let name = b.type === 'castle' && b.ruined ? 'TÀN TÍCH LÂU ĐÀI' : d.name.toUpperCase();
-          if (b.type === 'castle' && !b.ruined) name = (G.TIERS[S.tier].name + ' Bình Minh').toUpperCase();
+          let name = b.type === 'castle' && b.ruined ? 'TÀN TÍCH LÂU ĐÀI' : (b.team === 0 ? G.Eras.bname(b.type) : d.name).toUpperCase();
+          if (b.type === 'castle' && !b.ruined) name = (G.Modes.eraMode() ? G.Eras.bname('castle') : G.TIERS[S.tier].name + ' Bình Minh').toUpperCase();
           if (d.ground && b.type !== 'pen') continue;
           this.label(name, b.x, b.y + 14, b.team === 1 ? '#ff9b9b' : b.team === 2 ? '#ffe9a8' : '#ffffff', true);
         }
@@ -693,7 +753,7 @@
       const x = c.getContext('2d');
       for (let y = 0; y < W.H; y++) for (let xx = 0; xx < W.W; xx++) {
         const i = y * W.W + xx;
-        x.fillStyle = W.ground[i] ? (W.road[i] ? COL.road : COL.grass) : COL.water;
+        x.fillStyle = W.ground[i] ? (W.road[i] ? COL.road : this.biome().ground) : this.biome().water;
         x.fillRect(xx * 2, y * 2, 2, 2);
       }
       this.minimapBase = c;

@@ -10,10 +10,14 @@
     const stock = {};
     for (const k of G.ITEM_ORDER) stock[k] = 0;
     Object.assign(stock, { wood: Math.round(15 * diff.start), stone: Math.round(12 * diff.start), berry: Math.round(24 * diff.start), wheat: 10, carrot: 6 });
+    const mode = opts.mode || 'campaign';
+    const md = G.MODES[mode];
+    if (md.peaceful && mode === 'sandbox') { for (const k of ['wood', 'stone']) stock[k] *= 6; stock.berry += 40; }
     return {
-      v: 1, seed: opts.seed, difficulty: opts.difficulty, heroName: opts.heroName || 'Lam Phong',
+      v: 2, mode, mapId: md.fixedMap || opts.mapId || 'binhminh', era: md.eras ? (opts.era != null ? opts.era : md.startEra || 0) : 3, ai: null,
+      seed: opts.seed, difficulty: opts.difficulty, heroName: opts.heroName || 'Lam Phong',
       day: 1, time: 0.04, speed: 1, weather: 'clear',
-      gold: Math.round(80 * diff.start), stock, ration: {}, tax: 2, morale: 60,
+      gold: Math.round((mode === 'sandbox' ? 500 : 80) * diff.start), stock, ration: {}, tax: 2, morale: 60,
       units: [], buildings: [], nodes: [], drops: [],
       heroId: 0, castleId: 0,
       hero: { lvl: 1, xp: 0, hunger: 100, gear: {}, cds: {}, potionCd: 0, order: null, work: null, respawnT: 0 },
@@ -39,9 +43,25 @@
       const S = G.S;
       G.Military.projectiles = [];
       G.FX.clear();
+      G.World.setup(S.mapId, S.seed);
+      if (G.Render.buildTiles) { G.Render.buildTiles(); G.Render.minimapBase = null; }
       G.World.generate(S.seed);
       const c = G.byId(S.castleId);
       const fx = (c.tx + 2.5) * T, fy = (c.ty + c.h + 1.2) * T;
+      if (G.Modes.eraMode()) {
+        // các chế độ thời đại: trung tâm vương quốc đã dựng sẵn, bắt đầu ở thời đại đã chọn
+        c.ruined = false; c.hp = c.maxHp; S.flags.castleRepaired = true;
+        G.Modes.setEra(S.era);
+        c.hp = c.maxHp;
+        if (S.era >= 2) { S.stock.wood += 40 * S.era; S.stock.stone += 30 * S.era; S.gold += 80 * S.era; }
+        if (S.era >= 4) { S.stock.tools += 10; S.stock.weapons += 6; S.stock.gunpowder += 6; }
+        if (S.era >= 6) { S.stock.steel += 10; S.stock.fuel += 6; }
+        if (S.era >= 1 && !G.MODES[S.mode].peaceful) {
+          const best = G.BUILDINGS.barracks.trains.filter((k) => !G.Modes.unitLocked(G.UNITS[k])).pop();
+          for (let i = 0; i < 2 + Math.floor(S.era / 2); i++) G.Units.spawnSoldier(best, fx + 40 + i * 34, fy + 30, { squad: 'B' });
+        }
+      }
+      if (S.mode === 'skirmish') G.Modes.aiInit();
       G.Units.spawnHero(fx, fy);
       for (let i = 0; i < 3; i++) G.Units.spawnVillager(fx - 80 + i * 60, fy + 60);
       G.Units.spawnNpc('advisor', 'blue', c.tx - 1.2, c.ty + c.h + 0.8);
@@ -51,7 +71,8 @@
       S.rare = null;
       this.over = false;
       this.running = true;
-      G.Quests.start('q_advisor');
+      G.Modes.startQuests();
+      if (S.mode === 'pvp' && G.PvP) G.PvP.onGameStart();
       G.Render.snapCamera();
     },
 
@@ -79,6 +100,7 @@
       G.Military.updateArmy(dt);
       G.Military.updateEnemies(dt);
       G.Military.updateTowers(dt);
+      G.Military.updateAuras(dt);
       G.Military.updateProjectiles(dt);
       G.Military.updateTraining(dt);
       G.Military.updateRaid();
@@ -123,6 +145,8 @@
       const S = G.S;
       const vr = G.Village.daily();
       const er = G.Economy.daily();
+      G.Modes.aiDaily();
+      if (S.mode === 'survival') { try { const best = +localStorage.getItem('guomlua_best_survival') || 0; if (S.day - 1 > best) localStorage.setItem('guomlua_best_survival', S.day - 1); } catch (e) { /* bỏ qua */ } }
       G.Nodes.dailyRegrow();
       G.Military.respawnCamps();
       S.weather = G.Time.season().id === 'winter' ? 'snow' : 'clear';
@@ -159,6 +183,7 @@
 
     upgradeTier() {
       const S = G.S;
+      if (G.Modes.eraMode()) { G.Modes.advanceEra(); return; }
       const next = G.TIERS[S.tier + 1];
       if (!next) return;
       if (!S.flags.castleRepaired) { G.UI.toast('Hãy phục dựng lâu đài trước', 'bad'); return; }
@@ -178,7 +203,8 @@
     research(id) {
       const S = G.S, t = G.TECHS[id];
       if (S.research) { G.UI.toast('Đang nghiên cứu kỹ thuật khác', 'bad'); return; }
-      if (S.tier < t.tier) { G.UI.toast(`Cần bậc ${G.TIERS[t.tier].name}`, 'bad'); return; }
+      const tl = G.Modes.techLocked(t);
+      if (tl) { G.UI.toast(tl, 'bad'); return; }
       if (t.req && !S.techs[t.req]) { G.UI.toast(`Cần nghiên cứu ${G.TECHS[t.req].name} trước`, 'bad'); return; }
       if (!G.Economy.has(t.cost)) { G.UI.toast('Không đủ tài nguyên', 'bad'); return; }
       G.Economy.take(t.cost);
@@ -208,6 +234,7 @@
     },
     defeat() {
       this.over = true;
+      if (G.S.mode === 'pvp' && G.PvP) G.PvP.onDefeat();
       G.UI.endScreen(false);
     },
 
@@ -226,7 +253,7 @@
       if (!this.running || this.over) return false;
       try {
         localStorage.setItem(SAVE_KEY + slot, this.serialize());
-        localStorage.setItem(SAVE_KEY + slot + '_meta', JSON.stringify({ day: G.S.day, tier: G.S.tier, hero: G.S.heroName, at: Date.now(), ch: G.S.quests.chapter, diff: G.S.difficulty }));
+        localStorage.setItem(SAVE_KEY + slot + '_meta', JSON.stringify({ day: G.S.day, tier: G.S.tier, hero: G.S.heroName, at: Date.now(), ch: G.S.quests.chapter, diff: G.S.difficulty, mode: G.S.mode, map: G.S.mapId, era: G.S.era }));
         if (slot !== 'auto') G.UI.toast('Đã lưu game', 'good');
         return true;
       } catch (e) {
@@ -248,8 +275,12 @@
       G.ents.clear();
       const world = data.world;
       delete data.world;
+      data.mode = data.mode || 'campaign';
+      if (data.era == null) data.era = 3;
+      data.mapId = data.mapId || 'binhminh';
       G.S = data;
-      G.World.alloc();
+      G.World.setup(data.mapId, data.seed);
+      if (G.Render.buildTiles) { G.Render.buildTiles(); G.Render.minimapBase = null; }
       G.World.genTerrain(data.seed);
       for (const i of world.roads) G.World.road[i] = 1;
       G.World.decor = world.decor || [];

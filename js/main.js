@@ -27,6 +27,7 @@
         G.Game.update(dt);
         G.Render.draw(dt);
         G.UI.update(dt);
+        if (G.PvP) G.PvP.update(dt);
       } catch (e) {
         console.error(e);
       }

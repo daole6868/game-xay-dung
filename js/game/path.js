@@ -18,7 +18,7 @@
       const W = G.World.W, H = G.World.H, world = G.World;
       const N = W * H;
       if (!gScore || gScore.length !== N) {
-        gScore = new Float32Array(N); came = new Int32Array(N); stamp = new Uint32Array(N);
+        gScore = new Float64Array(N); came = new Int32Array(N); stamp = new Uint32Array(N);
       }
       curStamp++;
       const team = opts.team || 0;

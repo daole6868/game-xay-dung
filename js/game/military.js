@@ -30,9 +30,10 @@
       const S = G.S;
       const diff = G.DIFFICULTY[S.difficulty];
       const lvl = 1 + Math.min(1.5, S.day * 0.025);
-      u.maxHp = Math.round(u.maxHp * (u.boss ? 1 : lvl));
+      const lm = G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelMult();
+      u.maxHp = Math.round(u.maxHp * (u.boss ? 1 + (G.Eras.enemyEra() - 3) * 0.3 : lvl) * lm);
       u.hp = u.maxHp;
-      u.dmg *= diff.enemyDmg * (u.boss ? 1 : Math.min(1.6, 1 + S.day * 0.012));
+      u.dmg *= diff.enemyDmg * lm * (u.boss ? 1 : Math.min(1.6, 1 + S.day * 0.012));
       u.heal = (G.UNITS[u.type].heal || 0);
     },
 
@@ -84,8 +85,9 @@
       u.facing = t.x >= u.x ? 1 : -1;
       if (u.atkT > 0 || u.act) return true;
       const kind = u.kind;
-      const anim = kind === 'archer' ? 'shoot' : kind === 'lancer' ? 'attack' : kind === 'monk' ? 'heal' : kind === 'pawn' ? (G.UNITS[u.type] && G.UNITS[u.type].anim) || 'knife' : Math.random() < 0.5 ? 'attack1' : 'attack2';
-      const dur = Math.min(u.cd * 0.85, kind === 'archer' ? 0.7 : 0.45);
+      const ud = G.UNITS[u.type] || {};
+      const anim = kind === 'archer' ? 'shoot' : kind === 'lancer' ? 'attack' : kind === 'monk' ? 'heal' : kind === 'pawn' ? ud.anim || 'knife' : kind === 'warrior' ? (Math.random() < 0.5 ? 'attack1' : 'attack2') : ud.anim || 'attack';
+      const dur = Math.min(u.cd * 0.85, ud.ranged ? 0.7 : 0.45);
       G.Units.act(u, anim, dur);
       u.atkT = u.cd * (0.9 + Math.random() * 0.2);
       u.pending = { id: t.id, at: dur * 0.55 };
@@ -104,8 +106,8 @@
       const def = G.UNITS[u.type] || {};
       if (u.heal && def.healer) return;
       if (def.ranged || u.kind === 'archer') {
-        this.shoot(u.x + u.facing * 18, u.y - 34, t, u.dmg, u.team, u.color, u);
-        G.Audio.playAt('bow', u.x, u.y);
+        this.shoot(u.x + u.facing * (def.vehicle ? 40 : 18), u.y - (def.vehicle ? 26 : 34), t, u.dmg, u.team, u.color, u, { proj: def.proj, aoe: def.aoe, siege: def.siege });
+        G.Audio.playAt(def.proj === 'bullet' ? 'shot' : def.proj === 'shell' || def.proj === 'missile' ? 'cannon' : 'bow', u.x, u.y);
         return;
       }
       if (this.distToTarget(u, t) > u.range + 28) return;
@@ -122,7 +124,12 @@
         if (tk && sdef.bonus[tk]) mult = sdef.bonus[tk];
       }
       if (src && src.buffT > 0) mult *= 1.3;
-      if (t.building) { G.Build.damage(t, dmg * mult * (src && src.team === 1 ? 0.6 : 1), src); return; }
+      if (t.building) {
+        const siege = (sdef && sdef.siege) || (src && src.siege);
+        const vsB = siege ? 2.2 : sdef && sdef.ranged ? 0.35 : 0.6;
+        G.Build.damage(t, dmg * mult * (src && src.team === 1 ? vsB : siege ? 2.2 : 1), src);
+        return;
+      }
       this.damageUnit(t, dmg * mult, src);
     },
 
@@ -176,9 +183,26 @@
       }
     },
 
-    shoot(x, y, t, dmg, team, color, src) {
+    shoot(x, y, t, dmg, team, color, src, o = {}) {
       const p = this.targetPoint(t);
-      this.projectiles.push({ x, y, tx: p.x, ty: p.y, tid: t.id, dmg, team, color: color || 'blue', src: src ? src.id : 0, speed: 560, life: 2.5 });
+      const proj = o.proj || 'arrow';
+      const speed = proj === 'bullet' ? 1300 : proj === 'shell' ? 650 : proj === 'missile' ? 520 : 560;
+      this.projectiles.push({ x, y, tx: p.x, ty: p.y, tid: t.id, dmg, team, color: color || 'blue', src: src ? src.id : 0, speed, life: 3, proj, aoe: o.aoe || 0, siege: o.siege });
+    },
+
+    /** Nổ lan: gây sát thương mọi kẻ địch quanh điểm nổ. */
+    splash(p, x, y) {
+      const r = p.aoe * T;
+      G.FX.sprite('fx.explosion', x, y, Math.min(1.6, 0.5 + p.aoe * 0.4));
+      if (p.proj !== 'shell' || Math.random() < 0.5) G.Audio.playAt('boom', x, y);
+      const enemyTeam = p.team === 0 ? 1 : 0;
+      for (const e of G.Units.near(x, y, r, (u) => u.team === enemyTeam && !u.hidden && !u.invuln)) {
+        if (e.id !== p.tid) this.damageUnit(e, p.dmg * 0.6, G.byId(p.src));
+      }
+      for (const b of G.S.buildings) {
+        if (b.team !== enemyTeam || b.id === p.tid || G.BUILDINGS[b.type].road) continue;
+        if (G.dist(b.x, b.y - b.h * T / 2, x, y) < r + b.w * T / 2) G.Build.damage(b, p.dmg * 0.5 * (p.siege ? 2 : 1), null);
+      }
     },
 
     updateProjectiles(dt) {
@@ -190,7 +214,8 @@
         p.life -= dt;
         if (d < p.speed * dt + 4) {
           p.life = 0;
-          if (t && !t.dead && !t.removed) this.hit(G.byId(p.src) || { team: p.team }, t, p.dmg);
+          if (t && !t.dead && !t.removed) this.hit(G.byId(p.src) || { team: p.team, siege: p.siege }, t, p.dmg);
+          if (p.aoe) this.splash(p, p.tx, p.ty);
         } else { p.x += (dx / d) * p.speed * dt; p.y += (dy / d) * p.speed * dt; }
       }
       this.projectiles = this.projectiles.filter((p) => p.life > 0);
@@ -206,17 +231,55 @@
         if (b.atkT > 0) continue;
         let range = sh.range * T, dmg = sh.dmg;
         if (b.type === 'castle') dmg += (G.S.tier - 1) * 4;
+        let proj = sh.proj || 'arrow';
         if (b.team === 0) {
           if (G.S.techs.longbow) { range *= 1.2; dmg *= 1.2; }
           if (G.S.techs.masonry) dmg *= 1.25;
-        } else dmg *= G.DIFFICULTY[G.S.difficulty].enemyDmg;
+          if (G.Modes.eraMode() && (b.type === 'tower' || b.type === 'castle')) {
+            const E = G.Eras.def();
+            dmg *= E.tower;
+            if (E.proj) proj = E.proj;
+          }
+          if (this.radarNear(b)) range *= 1.2;
+        } else {
+          dmg *= G.DIFFICULTY[G.S.difficulty].enemyDmg * (G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelMult());
+          if (G.Eras.enemyEra() >= 4 && !sh.proj) proj = 'bullet';
+        }
         const cx = b.x, cy = b.y - b.h * T * 0.5;
         const enemyTeam = b.team === 0 ? 1 : 0;
         const t = G.Units.nearest(cx, cy, range, (e) => e.team === enemyTeam && !e.hidden && !e.invuln && !e.dead);
         if (!t) continue;
         b.atkT = sh.cd;
-        this.shoot(cx, b.y - b.h * T * 1.1, t, dmg, b.team, b.team === 0 ? 'blue' : 'red', null);
-        G.Audio.playAt('bow', cx, cy);
+        this.shoot(cx, b.y - b.h * T * 1.1, t, dmg, b.team, b.team === 0 ? 'blue' : 'red', null, { proj, aoe: sh.aoe, siege: false });
+        G.Audio.playAt(proj === 'bullet' ? 'shot' : proj === 'arrow' ? 'bow' : 'cannon', cx, cy);
+      }
+    },
+
+    radarNear(b) {
+      for (const r of G.S.buildings) {
+        const d = G.BUILDINGS[r.type];
+        if (d.radar && r.team === b.team && r.built && G.dist(r.x, r.y, b.x, b.y) < d.radar * T) return true;
+      }
+      return false;
+    },
+
+    /** Bệnh viện hồi máu; rào thép gai làm chậm và gây thương tích. */
+    updateAuras(dt) {
+      this.auraT = (this.auraT || 0) - dt;
+      if (this.auraT > 0) return;
+      this.auraT = 1;
+      for (const b of G.S.buildings) {
+        const d = G.BUILDINGS[b.type];
+        if (!d.heal || !b.built || b.team !== 0) continue;
+        for (const u of G.Units.near(b.x, b.y - T, d.heal.range * T, (x) => x.team === 0 && !x.npc && !x.sheep && x.hp < x.maxHp)) {
+          u.hp = Math.min(u.maxHp, u.hp + d.heal.hp);
+          if (Math.random() < 0.3) G.FX.particle(u.x, u.y - 40, { color: '#9effa1', dur: 0.6, vy: -30, size: 3 });
+        }
+      }
+      for (const u of G.S.units) {
+        if (u.team !== 1 || u.dead) continue;
+        const bd = G.World.buildingAt(Math.floor(u.x / T), Math.floor(u.y / T));
+        if (bd && G.BUILDINGS[bd.type].barbed && bd.built) { u.slowT = 1.2; this.damageUnit(u, 4, null); }
       }
     },
 
@@ -372,7 +435,8 @@
     // ---------------- Huấn luyện ----------------
     canTrain(b, type) {
       const def = G.UNITS[type];
-      if ((def.tier || 0) > G.S.tier) return `Cần bậc ${G.TIERS[def.tier].name}`;
+      const lock = G.Modes.unitLocked(def);
+      if (lock) return lock;
       if (type === 'monk' && !G.S.flags.breadGiven) return 'Cần giúp Tử Nguyệt Tự (nhiệm vụ)';
       if ((b.queue || []).length >= 5) return 'Hàng chờ đã đầy';
       if (!G.Build.canAfford(def.cost)) return 'Không đủ tài nguyên';
@@ -570,7 +634,7 @@
         const camp = G.S.camps[c];
         if (camp.dead) continue;
         camp.garrison = camp.garrison.filter((id) => { const u = G.byId(id); return u && !u.dead && u.camp === c; });
-        const def = G.CAMPS[c];
+        const def = G.campDef(c);
         const full = Object.values(def.garrison).reduce((a, b) => a + b, 0);
         for (let i = 0; i < def.respawn && camp.garrison.length < full; i++) {
           const types = Object.keys(def.garrison);
@@ -583,25 +647,30 @@
     planRaid() {
       const S = G.S;
       if (S.raid && S.raid.active) return;
-      const blood = S.day % 8 === 0;
+      const pol = G.Modes.raidPolicy();
+      if (!pol) return;
+      if (G.Modes.mode() !== 'campaign') S.flags.firstRaidSent = true;
+      const blood = S.day % pol.blood === 0;
       let force = false, budget = 0;
       if (S.flags.firstRaid && !S.flags.firstRaidSent) { force = true; budget = 3; S.flags.firstRaidSent = true; }
-      else if (S.flags.firstRaidSent && S.day >= 3) {
-        const chance = blood ? 1 : Math.min(0.85, 0.3 + S.day * 0.035);
+      else if (S.flags.firstRaidSent && S.day >= pol.from) {
+        const chance = blood || pol.every ? 1 : Math.min(0.85, 0.3 + S.day * 0.035);
         if (S.raidSkip === S.day && !blood) return;
         if (Math.random() > chance) return;
         const deadCamps = ['A', 'B', 'C'].filter((k) => G.campDead(k)).length;
         budget = (3 + S.day * 1.25) * G.DIFFICULTY[S.difficulty].raid * (blood ? 2 : 1) * (S.raidBoost || 1) * (1 - deadCamps * 0.15);
         if (G.campDead('F')) budget *= 0.8;
         // giặc lớn dần theo sự phát triển của vương quốc
-        const cap = [0, 5, 12, 24, 999][S.tier] * G.DIFFICULTY[S.difficulty].raid * (blood ? 1.6 : 1);
+        budget *= pol.mult * (G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelMult());
+        const cap = (G.Modes.eraMode() ? [6, 9, 13, 18, 26, 34, 44][S.era] : [0, 5, 12, 24, 999][S.tier]) * G.DIFFICULTY[S.difficulty].raid * (blood ? 1.6 : 1) * pol.mult;
         budget = Math.min(budget, cap);
         force = true;
       }
       S.raidBoost = 1;
       if (!force) return;
       const origins = Object.keys(S.camps).filter((k) => !S.camps[k].dead);
-      const from = origins.length ? origins.sort((a, b) => G.dist(G.World.PLACES[a].tx, G.World.PLACES[a].ty, 16, 33) - G.dist(G.World.PLACES[b].tx, G.World.PLACES[b].ty, 16, 33))[Math.min(origins.length - 1, Math.floor(Math.random() * 2))] : null;
+      const home = G.World.PLACES.castle;
+      const from = G.Modes.mode() === 'skirmish' && S.camps.F && !S.camps.F.dead ? 'F' : origins.length ? origins.sort((a, b) => G.dist(G.World.PLACES[a].tx, G.World.PLACES[a].ty, home.tx, home.ty) - G.dist(G.World.PLACES[b].tx, G.World.PLACES[b].ty, home.tx, home.ty))[Math.min(origins.length - 1, Math.floor(Math.random() * 2))] : null;
       const types = [];
       const avail = ['raider'];
       if (S.day >= 3) avail.push('redwarrior');
@@ -616,10 +685,15 @@
         types.push(tp);
         b -= G.RAID_COST[tp];
       }
-      S.raid = { pending: true, active: false, blood, from, types, ids: [] };
+      S.raid = { pending: true, active: false, blood, from, types: types.map((t) => G.Eras.enemyType(t)), ids: [] };
       const dir = from ? this.dirName(G.World.PLACES[from]) : 'biển phía đông';
       G.UI.toast(blood ? `TRĂNG MÁU! Đêm nay ${types.length} quân Huyết Nha sẽ kéo tới từ ${dir}!` : `Thám báo: đêm nay ${types.length} quân Huyết Nha sẽ tới từ ${dir}.`, 'bad', 6);
       G.UI.log(`Cảnh báo: ${types.length} quân giặc, hướng ${dir}.`, 'bad');
+      if (S.buildings.some((b) => b.team === 0 && b.built && G.BUILDINGS[b.type].radar)) {
+        const cnt = {};
+        for (const t of S.raid.types) cnt[t] = (cnt[t] || 0) + 1;
+        G.UI.log('Radar: ' + Object.keys(cnt).map((k) => `${cnt[k]} ${G.UNITS[k].name}`).join(', '), 'info');
+      }
       G.Audio.play('horn');
     },
 
@@ -652,6 +726,39 @@
         this.applyEnemyScaling(u);
         R.ids.push(u.id);
       }
+      G.Audio.play('drums');
+    },
+
+    /** Đối thủ máy tung một đợt quân ngay (ban ngày hoặc ban đêm). */
+    sendAiWave(mult) {
+      const S = G.S;
+      if (G.campDead('F') || (S.raid && S.raid.active)) return;
+      const n = Math.round((3 + S.day * 0.9) * mult * G.Modes.levelMult());
+      const roles = ['raider', 'redwarrior', 'redarcher', 'redwarrior', 'redlancer', 'redmonk'];
+      const types = [];
+      for (let i = 0; i < n; i++) types.push(G.Eras.enemyType(G.pick(roles)));
+      S.raid = { pending: true, active: false, blood: false, from: 'F', types, ids: [] };
+      G.UI.toast(`Vương quốc máy xuất ${n} quân đánh bạn!`, 'bad', 5);
+      G.Audio.play('horn');
+      this.spawnRaid();
+    },
+
+    /** Quân đối thủ (online) gửi tới: xuất hiện ở phía đông bản đồ. */
+    spawnIncoming(units, from) {
+      const S = G.S;
+      const P = G.World.PLACES.F;
+      const R = S.raid && S.raid.active ? S.raid : (S.raid = { pending: false, active: true, blood: false, from: null, types: [], ids: [] });
+      let n = 0;
+      for (const k in units) {
+        const type = G.UNITS['red_' + k] ? 'red_' + k : ({ warrior: 'redwarrior', archer: 'redarcher', lancer: 'redlancer', monk: 'redmonk', merc: 'redwarrior', blacklancer: 'redlancer' }[k] || 'raider');
+        for (let i = 0; i < Math.min(40, units[k]); i++) {
+          const spot = G.World.findFreeTile(P.tx, P.ty, 0, 5) || { x: P.tx, y: P.ty };
+          const u = G.Units.create(type, (spot.x + 0.5) * T, (spot.y + 0.5) * T, 1, { raid: true, homeX: (spot.x + 0.5) * T, homeY: (spot.y + 0.5) * T });
+          R.ids.push(u.id);
+          n++;
+        }
+      }
+      G.UI.toast(`${from} gửi ${n} quân tấn công bạn!`, 'bad', 5);
       G.Audio.play('drums');
     },
 

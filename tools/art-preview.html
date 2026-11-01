@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Xem trước đồ hoạ dự phòng</title>
 <!--
-  Xem mọi khoá trong TS_CATALOG do js/art/fallback.js vẽ.
+  Xem mọi khoá trong TS_CATALOG do js/art/fallback.js vẽ, cộng các khoá mở rộng (js/art/eras.js).
   Tham số URL: ?f=u.blue,b.red  (lọc theo tiền tố, cách nhau bằng dấu phẩy)
                &z=0.5           (phóng to/thu nhỏ hiển thị)
                &strip=1         (hiện toàn bộ khung hình thành dải, không chạy hoạt ảnh)
                &frame=3         (đứng yên ở một khung)
+               &walls=0|1       (dải thử tường tự nối; mặc định hiện khi không lọc hoặc lọc có "w.")
+               &ext=0           (chỉ khoá gốc của danh mục)
   Dấu chữ thập đỏ = điểm neo (ax, ay).
 -->
 <style>
@@ -19,11 +21,17 @@
   #grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; align-items: flex-start; }
   .cell { background: #96b950; display: flex; flex-direction: column; align-items: center; padding: 2px; border: 1px solid #6d8a35; }
   .cell.water { background: #47aba9; border-color: #2f7f7d; }
+  .cell.snow { background: #e4ecf2; border-color: #b5c3cf; }
+  .cell.sand { background: #e3c98f; border-color: #b89b5e; }
   .cell canvas { image-rendering: pixelated; display: block; }
   .cell span { color: #1d1f33; background: #ffffffb0; padding: 0 3px; margin-top: 2px; max-width: 100%; overflow: hidden; white-space: nowrap; }
   .cell.bad { background: #c33; }
   #icons { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: #3a4150; }
   #icons img { image-rendering: pixelated; background: #96b950; }
+  #walls { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px; }
+  #walls figure { margin: 0; background: #1d1f33; padding: 3px; }
+  #walls figcaption { color: #fff; padding: 2px 0; }
+  #walls canvas { image-rendering: pixelated; display: block; }
 </style>
 </head>
 <body>
@@ -34,9 +42,11 @@
   <span id="stats"></span>
 </div>
 <div id="icons" title="Fallback.iconURL()"></div>
+<div id="walls"></div>
 <div id="grid"></div>
 <script src="../js/assets/catalog.js"></script>
 <script src="../js/art/fallback.js"></script>
+<script src="../js/art/eras.js"></script>
 <script>
 (function () {
   'use strict';
@@ -45,6 +55,7 @@
   const zoom = parseFloat(qs.get('z') || '1');
   const strip = qs.get('strip') === '1';
   const fixed = qs.has('frame') ? parseInt(qs.get('frame'), 10) : null;
+  const showWalls = qs.has('walls') ? qs.get('walls') === '1' : !filt.length || filt.some((p) => p.startsWith('w'));
   document.getElementById('f').value = filt.join(',');
   document.getElementById('z').value = String(zoom);
   document.getElementById('strip').checked = strip;
@@ -60,22 +71,25 @@
   document.getElementById('strip').addEventListener('change', reload);
 
   const E = TS_CATALOG.entries;
-  const keys = Object.keys(E).filter((k) => !filt.length || filt.some((p) => k.startsWith(p)));
-  const WATER = /^(n\.waterrock|t\.foam|fx\.splash|p\.boat|p\.dock)/;
+  const extKeys = qs.get('ext') === '0' || !Fallback.extKeys ? [] : Fallback.extKeys();
+  const all = Object.keys(E).concat(extKeys.filter((k) => !E[k]));
+  const info = (k) => E[k] || Fallback.entry(k);
+  const keys = all.filter((k) => !filt.length || filt.some((p) => k.startsWith(p)));
+  const WATER = /^(n\.waterrock|t\.foam|fx\.splash|p\.boat|p\.dock|n\.reeds)/, SNOW = /^n\.snow/, SAND = /^n\.(cactus|sandrock|palm)/;
   const grid = document.getElementById('grid');
   const cells = [], times = [], bad = [];
   let total = 0;
 
   for (const key of keys) {
-    const e = E[key];
+    const e = info(key);
     const t0 = performance.now();
     const s = Fallback.get(key);
     const dt = performance.now() - t0;
     total += dt; times.push([key, dt]);
     const div = document.createElement('div');
-    div.className = 'cell' + (WATER.test(key) ? ' water' : '');
+    div.className = 'cell' + (WATER.test(key) ? ' water' : SNOW.test(key) ? ' snow' : SAND.test(key) ? ' sand' : '');
     const W = e.size[0], H = e.size[1];
-    const okSize = s && s.fw * s.scale === W && s.fh * s.scale === H;
+    const okSize = s && s.fw * s.scale === W && s.fh * s.scale === H && s.n === (e.still ? 1 : e.frames);
     if (!s || !okSize || !Fallback.has(key)) { div.classList.add('bad'); bad.push(key + (s ? ' (size)' : ' (null)')); }
     const n = s ? s.n : 1, cols = strip ? n : 1;
     const cv = document.createElement('canvas');
@@ -89,14 +103,57 @@
 
   // kiểm tra iconURL
   const icons = document.getElementById('icons');
-  for (const key of Object.keys(E).filter((k) => /^(i\.|p\.portrait\.|r\.)/.test(k))) {
+  for (const key of all.filter((k) => /^(i\.|p\.portrait\.|r\.)/.test(k))) {
     const img = new Image(); img.src = Fallback.iconURL(key) || ''; img.title = key; icons.append(img);
   }
 
+  // ---------- Dải thử tường: mặt nạ lấy từ 4 ô kề (bit bật khi ô kề là tường HOẶC cổng) ----------
+  const MAP = [
+    '###G###..#...#..',
+    '.........#..###.',
+    '#........G...#..',
+    '#...###..#......',
+    'G....#...#..####',
+    '#....#......G..#',
+    '#####..#....#..#',
+    '.......#....####',
+  ];
+  const GATE_FOR = { fence: 'wood', palisade: 'wood', stone: 'iron', brick: 'iron', concrete: 'steel', sandbag: 'steel', barbed: 'steel' };
+  const isW = (x, y) => y >= 0 && y < MAP.length && x >= 0 && x < MAP[y].length && MAP[y][x] !== '.';
+  /** Khoá sprite cho ô (x,y) đúng như game sẽ chọn. */
+  function wallKey(style, gateStyle, x, y) {
+    const c = MAP[y][x];
+    if (c === 'G') return `w.gate.${gateStyle}.${isW(x - 1, y) || isW(x + 1, y) ? 'h' : 'v'}`;
+    const m = (isW(x, y - 1) ? 1 : 0) | (isW(x + 1, y) ? 2 : 0) | (isW(x, y + 1) ? 4 : 0) | (isW(x - 1, y) ? 8 : 0);
+    return `w.${style}.${m}`;
+  }
+  const wallStats = { tiles: 0, missing: [] };
+  if (showWalls && window.ERAS_ART) {
+    const box = document.getElementById('walls'), T = 64, wz = zoom;
+    for (const style of ERAS_ART.WALL_STYLES) {
+      const fig = document.createElement('figure'), cv = document.createElement('canvas'), cap = document.createElement('figcaption');
+      cv.width = MAP[0].length * T * wz; cv.height = (MAP.length + 0.5) * T * wz;
+      cap.textContent = `${style} + cổng ${GATE_FOR[style]}`; fig.id = 'wall-' + style;
+      fig.append(cap, cv); box.append(fig);
+      const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#96b950'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#8cae49';
+      for (let y = 0; y < MAP.length; y++) for (let x = 0; x < MAP[0].length; x++) if ((x + y) & 1) ctx.fillRect((x * T) * wz, (y * T + T / 2) * wz, T * wz, T * wz);
+      for (let y = 0; y < MAP.length; y++) for (let x = 0; x < MAP[y].length; x++) { // vẽ theo hàng từ trên xuống
+        if (!isW(x, y)) continue;
+        const k = wallKey(style, GATE_FOR[style], x, y), s = Fallback.get(k); wallStats.tiles++;
+        if (!s) { wallStats.missing.push(k); continue; }
+        const ax = x * T + T / 2, ay = y * T + T + T / 2; // neo = giữa cạnh đáy ô (lùi xuống T/2 để chừa chỗ chiều cao tường hàng đầu)
+        ctx.drawImage(s.img, 0, 0, s.fw, s.fh, (ax - s.ax * s.scale) * wz, (ay - s.ay * s.scale) * wz, s.fw * s.scale * wz, s.fh * s.scale * wz);
+      }
+    }
+  }
+
   times.sort((a, b) => b[1] - a[1]);
-  const stats = { keys: keys.length, totalMs: +total.toFixed(1), maxMs: times[0] ? +times[0][1].toFixed(2) : 0, slowest: times.slice(0, 8).map(([k, t]) => `${k} ${t.toFixed(1)}ms`), bad, unknownGet: Fallback.get('x.nope'), hasGeneric: Fallback.has('u.green.warrior.idle') && Fallback.has('b.orange.castle') };
+  const extT = times.filter(([k]) => !E[k]);
+  const stats = { keys: keys.length, extKeys: extKeys.length, totalMs: +total.toFixed(1), maxMs: times[0] ? +times[0][1].toFixed(2) : 0, slowest: times.slice(0, 8).map(([k, t]) => `${k} ${t.toFixed(1)}ms`), slowestExt: extT.slice(0, 8).map(([k, t]) => `${k} ${t.toFixed(1)}ms`), extTotalMs: +extT.reduce((a, b) => a + b[1], 0).toFixed(1), bad, wallStats, unknownGet: Fallback.get('x.nope'), hasGeneric: Fallback.has('u.green.warrior.idle') && Fallback.has('b.orange.castle') };
   window.__stats = stats;
-  document.getElementById('stats').textContent = `${stats.keys} khoá · tổng ${stats.totalMs} ms · chậm nhất ${stats.slowest[0] || ''} · lỗi: ${bad.length}`;
+  document.getElementById('stats').textContent = `${stats.keys} khoá (${extKeys.length} mở rộng) · tổng ${stats.totalMs} ms · chậm nhất ${stats.slowest[0] || ''} · lỗi: ${bad.length}`;
 
   function cross(ctx, x, y) {
     ctx.fillStyle = '#ff2020';
