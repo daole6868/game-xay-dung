@@ -20,7 +20,7 @@ python3 -m http.server 8080
 # Cách 3: mở thẳng file index.html bằng Chrome/Edge (lưu game và nạp ảnh vẫn hoạt động)
 ```
 
-Có thể đưa lên **GitHub Pages** (Settings → Pages → chọn nhánh) để chơi online.
+Có thể đưa lên **GitHub Pages** (Settings → Pages → chọn nhánh) để chơi online. Riêng chế độ **Đấu online** cần mở game trên claude.ai (dùng tính năng phòng thời gian thực của trang); ở nơi khác nút này báo không kết nối được.
 
 ## Nạp đồ hoạ Tiny Swords
 
@@ -60,10 +60,14 @@ Trên điện thoại game luôn hiển thị **màn ngang**: nếu máy đang c
 
 ## Có gì trong game
 
+- **6 chế độ**: Chiến dịch (cốt truyện), Thời đại (Đồ đá → Hiện đại), Sinh tồn, Phát triển (không giặc), Đấu với máy, Đấu online (2–4 người qua phòng của claude.ai).
+- **10 bản đồ cấp 1–10**, rộng từ 64×48 tới 200×140 ô, nhiều địa hình (đảo, lục địa, quần đảo, sông, đầm lầy) và khí hậu (đồng cỏ, rừng, sa mạc, tuyết, mùa thu, đất tro).
+- **7 thời đại** với kiến trúc, tường, đường và quân đội đổi theo thời đại; 17 công trình mới gồm quân sự hiện đại (ụ súng máy, trận địa pháo, bệ tên lửa, radar, xưởng xe tăng…) và 10 binh chủng mới (tới xe tăng, pháo tự hành).
+
 - **Cốt truyện 5 chương**, 26 nhiệm vụ, lựa chọn liên minh có hậu quả, trùm cuối nhiều giai đoạn, chế độ vô tận sau khi thắng.
 - **Nông trại theo mùa**: lúa mì, cà rốt, bí ngô; giếng, mưa, hạn; chăn cừu, xén len, sinh sản.
 - **Sinh tồn**: dân ăn mỗi sáng, ăn đa dạng thì vui, mùa đông cần gỗ sưởi, đói thì bỏ làng; Hiệp sĩ có thanh no; hoả hoạn, bão, dịch bệnh, trộm.
-- **Xây dựng**: 23 loại công trình, 4 bậc vương quốc, 5 chuỗi sản xuất, 9 nghề cho dân tự làm việc, 12 kỹ thuật.
+- **Xây dựng**: 39 loại công trình, 4 bậc vương quốc, 5 chuỗi sản xuất, 9 nghề cho dân tự làm việc, 12 kỹ thuật.
 - **Quân sự**: 4 binh chủng khắc chế nhau, quân hàm, hai đội (cận vệ / viễn chinh), tháp canh, tường, trận cướp đêm và Trăng Máu, 4 trại giặc, lính đánh thuê.
 - **Giao thương**: giá động theo cung cầu và mùa, 4 khu chợ với nhu cầu khác nhau, uy tín, hợp đồng, tuyến buôn có xe hàng chạy thật trên bản đồ (có thể bị cướp), thương thuyền hàng hiếm, cầu nóng mỗi ngày.
 - **14 sự kiện ngẫu nhiên** có lựa chọn, 3 mức độ khó, bản đồ sinh từ seed, lưu 3 ô + tự động.

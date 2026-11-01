@@ -42,7 +42,7 @@
     {
       id: 'tribute', title: 'Sứ giả Huyết Nha', portrait: 'scout',
       text: (d) => `Một tên sứ giả Huyết Nha cưỡi ngựa tới cổng: "Nộp ${d.gold} vàng, đêm nay các ngươi được ngủ yên. Không thì..."`,
-      weight: () => (S().day >= 5 && !G.campDead('F') ? 0.8 : 0),
+      weight: () => (S().day >= 5 && S().camps.F && !S().camps.F.dead ? 0.8 : 0),
       init: (d) => { d.gold = 60 + S().day * 10; },
       choices: [
         { label: (d) => `Nộp ${d.gold} vàng`, cond: (d) => S().gold >= d.gold, effect: (d) => { E().spendGold(d.gold); S().raidSkip = S().day; G.Village.addMorale(-4, 'Cúi đầu nộp cống'); } },

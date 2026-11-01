@@ -1,6 +1,6 @@
 # GƯƠM & LÚA — Tài liệu thiết kế game (GDD)
 
-> Phiên bản 1.0 · Thể loại: nông trại + sinh tồn + xây dựng + quân sự + giao thương · Nền tảng: trình duyệt (PC & điện thoại) · Đồ hoạ: Tiny Swords (Pixel Frog)
+> Phiên bản 2.0 · Thể loại: nông trại + sinh tồn + xây dựng + quân sự + giao thương · Nền tảng: trình duyệt (PC & điện thoại) · Đồ hoạ: Tiny Swords (Pixel Frog)
 
 ---
 
@@ -331,9 +331,81 @@ Toàn bộ danh mục nằm ở `js/assets/catalog.js` (khoá sprite → tên fi
 
 ---
 
-## 16. Lộ trình mở rộng (đề xuất)
+## 17. Chế độ chơi (bản 2)
 
-1. Nhiều người chơi hợp tác (một người lo kinh tế, một người cầm quân).
+| Chế độ | Thời đại | Giặc | Mục tiêu |
+|---|---|---|---|
+| **Chiến dịch** | Trung cổ (bậc Trại → Kinh thành) | Trại Huyết Nha + trận cướp đêm | Cốt truyện 5 chương, hạ Bạo chúa Xích Hoả |
+| **Thời đại** | Bắt đầu Đồ đá, tiến tới Hiện đại | Trại giặc + cướp đêm, giặc đổi binh chủng theo thời đại | Lên đủ 7 thời đại rồi phá Thành Huyết Nha |
+| **Sinh tồn** | Chọn thời đại khởi đầu | Đêm nào cũng có giặc (×1.35), Trăng Máu mỗi 5 đêm | Trụ càng lâu càng tốt (mốc 5/10/20/40 ngày, lưu kỷ lục) |
+| **Phát triển** | Chọn thời đại khởi đầu | Không có giặc, tài nguyên khởi đầu gấp nhiều lần | Lên Thời Hiện Đại với 40 dân |
+| **Đấu với máy** | Chọn thời đại khởi đầu | Vương quốc máy ở phía đông: mỗi ngày có thêm vàng, xây tháp/nhà/trại lính, luyện quân, theo kịp thời đại của bạn, tấn công ban đêm và cách ngày một đợt ban ngày | Phá huỷ toàn bộ vương quốc máy |
+| **Đấu online** | Chủ phòng chọn | Chỉ có đối thủ người thật | Phá lâu đài mọi đối thủ |
+
+### Đấu online
+- Chạy trên trang claude.ai nhờ "phòng" thời gian thực của trang. Người chơi phải đăng nhập và được mời vào trang (khách vào bằng link công khai không kết nối được).
+- Phòng chờ: nhập cùng **mã phòng**, bấm Sẵn sàng; chủ phòng (👑) chọn bản đồ/thời đại và bấm Bắt đầu. Mọi người nhận cùng seed nên bản đồ giống hệt nhau.
+- Mỗi người xây vương quốc của riêng mình. Trong bảng Quân đội có danh sách đối thủ (ngày, thời đại, dân, lính, % lâu đài) và nút **Gửi đội viễn chinh / Gửi toàn quân**: quân rời vương quốc của bạn và xuất hiện ở phía đông đất đối thủ, tiến đánh lâu đài của họ.
+- Lâu đài sập là bị loại; người cuối cùng còn lâu đài thắng.
+
+## 18. Bản đồ (10 cấp)
+
+| Cấp | Bản đồ | Kích thước | Địa hình | Khí hậu |
+|---|---|---|---|---|
+| 1 | Bãi Tân Thủ | 64×48 | Đảo | Đồng cỏ |
+| 2 | Đảo Bình Minh | 96×72 | Đảo (bản đồ cốt truyện) | Đồng cỏ |
+| 3 | Thung Lũng Sông Xanh | 104×78 | Sông chia đôi, qua ở khúc cạn | Đồng cỏ |
+| 4 | Quần Đảo Ngọc | 112×84 | Quần đảo nối bằng doi cát | Đồng cỏ |
+| 5 | Rừng Cổ Thụ | 120×90 | Lục địa | Rừng rậm |
+| 6 | Sa Mạc Lửa | 132×96 | Lục địa | Sa mạc: cây ít, ruộng chỉ tốt quanh giếng, nhiều vàng |
+| 7 | Cao Nguyên Tuyết | 144×104 | Đảo | Tuyết: cây lớn chậm, cần gỗ sưởi quanh năm |
+| 8 | Đầm Lầy Sương | 156×112 | Nhiều hồ | Đầm lầy |
+| 9 | Đại Lục Chiến Tranh | 176×124 | Lục địa | Mùa thu |
+| 10 | Vùng Đất Tận Thế | 200×140 | Lục địa | Đất tro núi lửa |
+
+Cấp bản đồ quyết định số trại giặc (1 tới 8 trại + Thành Huyết Nha) và sức mạnh giặc (×0.8 tới ×1.7). Mọi bản đồ đều có ba thị trấn giao thương và lối đi bảo đảm tới được mọi địa danh.
+
+## 19. Thời đại
+
+| Thời đại | Điều kiện | Kiến trúc | Tường / cổng | Đường | Quân mới |
+|---|---|---|---|---|---|
+| Đồ đá | khởi đầu | Lều tranh, nhà lớn bộ lạc | Tường cọc, cổng gỗ | Đất | Chiến binh chuỳ, Thợ săn ném lao |
+| Đồ đồng | 6 dân · 80 gỗ · 40 đá · 60 vàng | như trên | như trên | Đất | Lính giáo, Cung thủ |
+| Đồ sắt | 12 dân · 150 gỗ · 100 đá · 200 vàng · 10 công cụ | Tiny Swords trung cổ | Tường đá | Đất | Kiếm sĩ, Tu sĩ |
+| Trung cổ | 18 dân · 200 đá · 400 vàng · 20 công cụ · 10 vải | như trên | như trên | Đất | Kỵ thương |
+| Thuốc súng | 24 dân · 700 vàng · 30 công cụ · 20 vũ khí · 20 vải | Gạch đỏ, pháo đài | Tường gạch, cổng sắt | Đá lát | Lính hoả mai, Pháo thần công |
+| Công nghiệp | 30 dân · 1200 vàng · 30 thuốc súng · 40 công cụ · 300 đá | như trên, ống khói | như trên | Đá lát | Lính súng trường, Quân y |
+| Hiện đại | 38 dân · 2500 vàng · 60 thép · 30 xăng dầu · 60 công cụ | Bê tông, kính, sở chỉ huy | Tường bê tông, cổng thép | Nhựa | Lính đặc nhiệm, Xe tăng, Pháo tự hành |
+
+Mỗi thời đại: công trình bền hơn (+25%/thời đại, trung tâm +45%), tháp và trung tâm bắn mạnh hơn (×0.8 → ×2.5, từ thời Thuốc súng bắn đạn thay tên), nhà ở chứa nhiều người hơn (3 → 6). Giặc dùng binh chủng của thời đại tương ứng.
+
+### Công trình mới
+| Công trình | Thời đại | Chức năng |
+|---|---|---|
+| Lều thợ săn | Đồ đá | Thợ săn mang thịt về |
+| Cột vật tổ | Đồ đá | +2 lòng dân/ngày |
+| Xưởng thuốc súng | Thuốc súng | 1 gỗ + 1 đá → 1 thuốc súng |
+| Tháp pháo | Thuốc súng | Bắn đạn pháo nổ lan, tầm 8 ô |
+| Bao cát | Thuốc súng | Ụ chắn rẻ, dựng nhanh |
+| Lò cao | Công nghiệp | 2 quặng + 2 gỗ → 1 thép |
+| Nhà máy | Công nghiệp | Vũ khí/công cụ/vải gấp đôi, 3 thợ |
+| Ngân hàng | Công nghiệp | +35 vàng/ngày, thuế +20% |
+| Giếng dầu | Công nghiệp | Bơm xăng dầu |
+| Rào thép gai | Công nghiệp | Giặc đi qua bị chậm và mất máu; quân ta đi qua được |
+| Bệnh viện | Công nghiệp | Hồi máu quân ta trong 9 ô, luyện Quân y |
+| Ụ súng máy | Hiện đại | Bắn liên thanh tầm gần |
+| Trận địa pháo | Hiện đại | Tầm 11 ô, nổ lan |
+| Bệ tên lửa | Hiện đại | Tầm 15 ô, sức nổ cực lớn |
+| Trạm radar | Hiện đại | Báo trước quân số giặc; tháp trong 9 ô +20% tầm |
+| Nhà máy điện | Hiện đại | Xưởng trong 11 ô chạy nhanh hơn 40% |
+| Xưởng xe tăng | Hiện đại | Luyện Xe tăng, Pháo tự hành |
+
+### Tường tự nối
+Tường, rào, bao cát và cổng tự nối với ô kề (Bắc/Đông/Nam/Tây) có tường hoặc cổng cùng phe: thẳng hàng thì liền mạch, góc/chữ T/ngã tư có cột; cổng tự quay ngang/dọc theo hướng tường. Rào thép gai chỉ nối với rào thép gai.
+
+## 20. Lộ trình mở rộng (đề xuất)
+
+1. Chế độ hợp tác (một người lo kinh tế, một người cầm quân) dùng chung phòng online.
 2. Hải chiến & thuyền buôn đi tuyến biển.
 3. Bản đồ chiến dịch nhiều đảo, giải phóng từng đảo.
 4. Nhân vật phụ có tên, thăng cấp nghề, quan hệ gia đình trong làng.

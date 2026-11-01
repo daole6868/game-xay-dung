@@ -30,10 +30,10 @@
       const S = G.S;
       const diff = G.DIFFICULTY[S.difficulty];
       const lvl = 1 + Math.min(1.5, S.day * 0.025);
-      const lm = G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelMult();
-      u.maxHp = Math.round(u.maxHp * (u.boss ? 1 + (G.Eras.enemyEra() - 3) * 0.3 : lvl) * lm);
+      const camp = G.Modes.mode() === 'campaign';
+      u.maxHp = Math.round(u.maxHp * (u.boss ? 1 + (G.Eras.enemyEra() - 3) * 0.3 : lvl) * (camp ? 1 : G.Modes.levelHp()));
       u.hp = u.maxHp;
-      u.dmg *= diff.enemyDmg * lm * (u.boss ? 1 : Math.min(1.6, 1 + S.day * 0.012));
+      u.dmg *= diff.enemyDmg * (camp ? 1 : G.Modes.levelDmg()) * (u.boss ? 1 : Math.min(1.6, 1 + S.day * 0.012));
       u.heal = (G.UNITS[u.type].heal || 0);
     },
 
@@ -126,7 +126,7 @@
       if (src && src.buffT > 0) mult *= 1.3;
       if (t.building) {
         const siege = (sdef && sdef.siege) || (src && src.siege);
-        const vsB = siege ? 2.2 : sdef && sdef.ranged ? 0.35 : 0.6;
+        const vsB = siege ? 1.4 : sdef && sdef.ranged ? 0.35 : 0.6;
         G.Build.damage(t, dmg * mult * (src && src.team === 1 ? vsB : siege ? 2.2 : 1), src);
         return;
       }
@@ -242,7 +242,7 @@
           }
           if (this.radarNear(b)) range *= 1.2;
         } else {
-          dmg *= G.DIFFICULTY[G.S.difficulty].enemyDmg * (G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelMult());
+          dmg *= G.DIFFICULTY[G.S.difficulty].enemyDmg * (G.Modes.mode() === 'campaign' ? 1 : G.Modes.levelDmg());
           if (G.Eras.enemyEra() >= 4 && !sh.proj) proj = 'bullet';
         }
         const cx = b.x, cy = b.y - b.h * T * 0.5;
@@ -437,7 +437,7 @@
       const def = G.UNITS[type];
       const lock = G.Modes.unitLocked(def);
       if (lock) return lock;
-      if (type === 'monk' && !G.S.flags.breadGiven) return 'Cần giúp Tử Nguyệt Tự (nhiệm vụ)';
+      if (type === 'monk' && G.S.mode === 'campaign' && !G.S.flags.breadGiven) return 'Cần giúp Tử Nguyệt Tự (nhiệm vụ)';
       if ((b.queue || []).length >= 5) return 'Hàng chờ đã đầy';
       if (!G.Build.canAfford(def.cost)) return 'Không đủ tài nguyên';
       return '';
@@ -685,7 +685,9 @@
         types.push(tp);
         b -= G.RAID_COST[tp];
       }
-      S.raid = { pending: true, active: false, blood, from, types: types.map((t) => G.Eras.enemyType(t)), ids: [] };
+      // xe tăng/pháo của giặc chỉ xuất hiện từ ngày 7 để người chơi kịp dựng phòng thủ
+      const mapType = (t) => { const e = G.Eras.enemyType(t); return G.UNITS[e].vehicle && S.day < 7 ? G.Eras.enemyType('raider') : e; };
+      S.raid = { pending: true, active: false, blood, from, types: types.map(mapType), ids: [] };
       const dir = from ? this.dirName(G.World.PLACES[from]) : 'biển phía đông';
       G.UI.toast(blood ? `TRĂNG MÁU! Đêm nay ${types.length} quân Huyết Nha sẽ kéo tới từ ${dir}!` : `Thám báo: đêm nay ${types.length} quân Huyết Nha sẽ tới từ ${dir}.`, 'bad', 6);
       G.UI.log(`Cảnh báo: ${types.length} quân giặc, hướng ${dir}.`, 'bad');

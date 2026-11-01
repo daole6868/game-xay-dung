@@ -38,8 +38,8 @@
       <div class="pitch">
         <div>${G.UI.icon('i.wheat')}<b>Nông trại</b><span>Gieo lúa, cà rốt, bí ngô theo mùa. Chăn cừu, xay bột, nướng bánh.</span></div>
         <div>${G.UI.icon('i.fire')}<b>Sinh tồn</b><span>Đói, rét mùa đông, lòng dân, hoả hoạn, dịch bệnh, đêm Trăng Máu.</span></div>
-        <div>${G.UI.icon('i.castle')}<b>Xây dựng</b><span>23 loại công trình, 4 bậc vương quốc, 12 kỹ thuật.</span></div>
-        <div>${G.UI.icon('i.sword')}<b>Quân sự</b><span>4 binh chủng khắc chế nhau, tháp canh, phá trại giặc, đánh boss.</span></div>
+        <div>${G.UI.icon('i.castle')}<b>Xây dựng</b><span>39 loại công trình, 7 thời đại từ Đồ đá tới Hiện đại, 10 bản đồ.</span></div>
+        <div>${G.UI.icon('i.sword')}<b>Quân sự</b><span>14 binh chủng từ chuỳ đá tới xe tăng, tháp pháo, tên lửa, đấu với máy hoặc online.</span></div>
         <div>${G.UI.icon('i.trade')}<b>Giao thương</b><span>Giá động theo cung cầu & mùa, 4 khu chợ, hợp đồng, tuyến buôn, thương thuyền.</span></div>
       </div>`;
     },

@@ -18,8 +18,10 @@
     def() { return G.MODES[this.mode()]; },
     eraMode() { return !!this.def().eras; },
     level() { return G.World.map ? G.World.map.level : 2; },
-    /** Hệ số sức mạnh giặc theo cấp bản đồ. */
+    /** Hệ số theo cấp bản đồ: số lượng giặc, máu giặc, sát thương giặc. */
     levelMult() { return 0.7 + this.level() * 0.1; },
+    levelHp() { return 0.75 + this.level() * 0.07; },
+    levelDmg() { return 0.85 + this.level() * 0.035; },
 
     campList() {
       const m = this.mode();
